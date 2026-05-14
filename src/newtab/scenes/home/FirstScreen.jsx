@@ -253,7 +253,10 @@ const FirstScreen = (props) => {
   const { handleUnlock, unlock, showTopIcon } = props;
 
   const { home, tools, note, option, link } = useStores();
-  const { isSoBarDown, homeLinkTimeKey, bgColor, bgType, showHomeClock, homeLinkMaxNum = 14, soHdCenter, bgImageFit = 'cover', bg2ImageFit = 'cover', homeGlassEffect } = option.item;
+  const { isSoBarDown, bgColor, bgType, showHomeClock, homeLinkMaxNum = 14, soHdCenter, bgImageFit = 'cover', bg2ImageFit = 'cover', homeGlassEffect } = option.item;
+
+  const effectiveKeys = option.getHomeLinkTimeKeys();
+  const effectiveKeysSig = effectiveKeys.join(',');
   
   // 直接使用 bgUrl（HomeStores 会自动处理渐进式加载：先缩略图后大图）
   const bg1DisplayUrl = home.bgUrl || home.bgThumbnailUrl || null;
@@ -266,7 +269,7 @@ const FirstScreen = (props) => {
 
   const { token } = useToken();
   const location = useLocation();
-  const [homeLink, setHomeLink] = React.useState([]);
+  const [homeGroups, setHomeGroups] = React.useState([]);
   const [showHomeLink, setShowHomeLink] = React.useState(!unlock);
   const [pendingLinksCount, setPendingLinksCount] = React.useState(0);
 
@@ -401,24 +404,29 @@ const FirstScreen = (props) => {
   }, [isSoBarDown])
 
   React.useEffect(() => {
-    if (!unlock && homeLinkTimeKey && !home.isBg2) {
-      link.getLinkByParentId(homeLinkTimeKey).then((res) => {
-        if (res && Array.isArray(res)) {
-          const list = res.sort((a, b) => {
-            return a.sort - b.sort;
-          });
-          setHomeLink(_.take(list, homeLinkMaxNum));
-        } else {
-          setHomeLink([]);
-        }
+    if (!unlock && effectiveKeys.length && !home.isBg2) {
+      Promise.all(
+        effectiveKeys.map((key) =>
+          link.getLinkByParentId(key).then((childRes) => {
+            const list = Array.isArray(childRes)
+              ? childRes.sort((a, b) => a.sort - b.sort)
+              : [];
+            return {
+              timeKey: key,
+              links: _.take(list, homeLinkMaxNum),
+            };
+          })
+        )
+      ).then((groups) => {
+        setHomeGroups(groups);
       }).catch((err) => {
         console.error('Failed to load home links:', err);
-        setHomeLink([]);
+        setHomeGroups([]);
       });
     } else {
-      setHomeLink([]);
+      setHomeGroups([]);
     }
-  }, [homeLinkTimeKey, unlock, home.isBg2, homeLinkMaxNum, link])
+  }, [effectiveKeysSig, unlock, home.isBg2, homeLinkMaxNum, link])
 
   React.useEffect(() => {
     if (home.isBg2) {
@@ -553,8 +561,7 @@ const FirstScreen = (props) => {
         <HomeSearch stickled={unlock} className={homeGlassEffect ? 'glass-card' : ''} />
       </SearchWrap>
       <HomeLinkList
-        homeLink={homeLink}
-        homeLinkTimeKey={homeLinkTimeKey}
+        homeGroups={homeGroups}
         isSoBarDown={isSoBarDown}
         stickled={unlock}
         showHomeLink={showHomeLink}

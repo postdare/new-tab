@@ -15,7 +15,7 @@ import {
 
 const localStorageKeys = ['bgType', 'bg2Type', 'bgBase64', 'bg2Base64', 'webdavVersion'];
 
-const v = 15;
+const v = 16;
 const updateOptions = {
   1: {
     errData: '9527'
@@ -92,6 +92,9 @@ const updateOptions = {
   },
   15: {
     homeGlassEffect: false,
+  },
+  16: {
+    homeLinkTimeKeys: [],
   }
 }
 
@@ -310,6 +313,15 @@ export default class OptionStores {
 
   get getItem() {
     return this.item;
+  }
+
+  getHomeLinkTimeKeys() {
+    const { homeLinkTimeKey, homeLinkTimeKeys } = this.item;
+    return homeLinkTimeKeys?.length
+      ? homeLinkTimeKeys
+      : homeLinkTimeKey
+        ? [homeLinkTimeKey]
+        : [];
   }
 
   getHomeId() {

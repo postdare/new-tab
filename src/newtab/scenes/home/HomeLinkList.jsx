@@ -10,68 +10,81 @@ import LinkItemSmall from "~/scenes/Link/LinkItemSmall";
 import { filterLinkList } from "~/utils";
 import _ from "lodash";
 
-const HomeLinkNav = styled.div`
+const HomeLinkOuter = styled.div`
   position: absolute;
-  z-index: ${(props) => props.stickled ? "-1" : "50"};
+  z-index: ${(props) => (props.stickled ? "-1" : "50")};
   left: 50%;
   top: calc(${(props) => (props.isSoBarDown ? "85vh - 10px" : "30vh + 60px")});
   transform: translateX(-50%) ${(props) => (props.isSoBarDown ? "translateY(-100%)" : "")};
-  width: 500px;
-  padding: 15px;
-  border-radius: 12px;
-  transition: border-color 0.3s, background-color 0.3s, backdrop-filter 0.3s;
-  border: 1px solid rgba(0, 0, 0, 0);
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  max-width: 92vw;
   -webkit-user-select: none;
-  -moz-user-select: none; 
-  -ms-user-select: none; 
-  user-select: none; 
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+`;
+
+const MasonryColumn = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+`;
+
+const HomeLinkNav = styled.div`
+  width: fit-content;
+  padding: 14px 16px;
+  border-radius: 16px;
+  transition: border-color 0.3s, background-color 0.3s, backdrop-filter 0.3s;
+  background-color: var(--homeNavBg);
+  border: 1px solid var(--homeNavBorderColor);
+  backdrop-filter: saturate(180%) blur(20px);
   &:hover {
     background-color: var(--homeNavBg);
     border-color: var(--homeNavBorderColor);
-    backdrop-filter: saturate(180%) blur(20px);
+    filter: brightness(1.08);
   }
 `;
 
 const SortableContainer = styled.div`
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 15px 15px;
-  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(var(--home-link-cols, 4), auto);
+  gap: 15px;
+  justify-content: start;
 `;
 
 const SortableWrapper = React.forwardRef((props, ref) => {
   return <SortableContainer ref={ref}>{props.children}</SortableContainer>;
 });
 
-const HomeLinkListComponent = (props) => {
-  const { homeLink, homeLinkTimeKey, isSoBarDown, stickled, showHomeLink } = props;
+const HomeLinkGroup = observer((props) => {
+  const { group, isSoBarDown, showHomeLink, glassMode } = props;
+  const { timeKey } = group;
   const { link } = useStores();
   const [linkList, setLinkList] = React.useState([]);
 
-  // 同步外部传入的 homeLink 到内部 state
+  // 同步外部传入的链接到内部 state
   React.useEffect(() => {
-    if (homeLink && Array.isArray(homeLink)) {
-      setLinkList([...homeLink]);
+    if (group.links && Array.isArray(group.links)) {
+      setLinkList(group.links);
     } else {
       setLinkList([]);
     }
-  }, [homeLink]);
+  }, [group.links]);
 
   // 防抖保存排序
   const onUpdateSort = useDebounce((value) => {
-    if (!homeLinkTimeKey || !value || value.length === 0) {
+    if (!timeKey || !value || value.length === 0) {
       return;
     }
     // 使用 filterLinkList 更新 sort 字段
-    const updatedList = filterLinkList(value, homeLinkTimeKey);
-    
-    // 像 LinkPanel 的 setLinkItem 一样，更新 link.list
-    // 删除 link.list 中 parentId 相同的数据
-    _.remove(link.list, (v) => v.parentId === homeLinkTimeKey);
-    // 添加新的排序后的数据
-    link.list.push(...Array.from(updatedList));
-    
+    const updatedList = filterLinkList(value, timeKey);
+
+    // 替换 link.list 中 parentId 相同的数据，避免多次 MobX 反应
+    const otherLinks = link.list.filter((v) => v.parentId !== timeKey);
+    link.list.replace([...otherLinks, ...updatedList]);
+
     // 保存到数据库
     link.updateLink(updatedList).then(() => {
       setTimeout(() => {
@@ -86,17 +99,15 @@ const HomeLinkListComponent = (props) => {
     onUpdateSort(newList);
   }, [onUpdateSort]);
 
-  // 如果没有链接或条件不满足，不渲染
-  if (!homeLinkTimeKey || !linkList || !Array.isArray(linkList) || linkList.length === 0) {
+  // 如果没有链接，不渲染该分组
+  if (!timeKey || !linkList || !Array.isArray(linkList) || linkList.length === 0) {
     return null;
   }
 
+  const cols = Math.min(linkList.length, 4);
+
   return (
-    <HomeLinkNav
-      isSoBarDown={isSoBarDown}
-      stickled={stickled}
-      
-    >
+    <HomeLinkNav style={{ "--home-link-cols": cols }}>
       <ReactSortable
         tag={SortableWrapper}
         list={linkList}
@@ -114,7 +125,7 @@ const HomeLinkListComponent = (props) => {
                 <LinkItemSmall
                   isSoBarDown={isSoBarDown}
                   {...v}
-                  className={props.glassMode ? 'glass-card' : ''}
+                  className={glassMode ? 'glass-card' : ''}
                 />
               </div>
             );
@@ -123,9 +134,66 @@ const HomeLinkListComponent = (props) => {
       </ReactSortable>
     </HomeLinkNav>
   );
+});
+
+const HomeLinkListComponent = (props) => {
+  const { homeGroups, isSoBarDown, stickled, showHomeLink, glassMode } = props;
+
+  // 过滤出有链接的有效分组（必须在所有 hooks 之前计算）
+  const validGroups = React.useMemo(() => {
+    if (!homeGroups || !Array.isArray(homeGroups)) return [];
+    return homeGroups.filter(
+      (g) => g && g.timeKey && Array.isArray(g.links) && g.links.length > 0
+    );
+  }, [homeGroups]);
+
+  // 贪心分列（masonry）：按估算高度把每个分组放进当前最矮的列
+  const columns = React.useMemo(() => {
+    if (validGroups.length === 0) return [];
+    const colCount = Math.min(3, validGroups.length);
+    const cols = Array.from({ length: colCount }, () => ({
+      items: [],
+      height: 0,
+    }));
+    validGroups.forEach((group) => {
+      // 每行约 5 个图标，每个图标槽约 73px，加上卡片上下 padding
+      const rows = Math.ceil(group.links.length / 5);
+      const estHeight = rows * 73 + 30;
+      let target = cols[0];
+      for (const col of cols) {
+        if (col.height < target.height) {
+          target = col;
+        }
+      }
+      target.items.push(group);
+      target.height += estHeight + 15;
+    });
+    return cols;
+  }, [validGroups]);
+
+  if (validGroups.length === 0) {
+    return null;
+  }
+
+  return (
+    <HomeLinkOuter isSoBarDown={isSoBarDown} stickled={stickled}>
+      {columns.map((col, i) => (
+        <MasonryColumn key={i}>
+          {col.items.map((group) => (
+            <HomeLinkGroup
+              key={group.timeKey}
+              group={group}
+              isSoBarDown={isSoBarDown}
+              showHomeLink={showHomeLink}
+              glassMode={glassMode}
+            />
+          ))}
+        </MasonryColumn>
+      ))}
+    </HomeLinkOuter>
+  );
 };
 
 const HomeLinkList = React.memo(observer(HomeLinkListComponent));
 
 export default HomeLinkList;
-

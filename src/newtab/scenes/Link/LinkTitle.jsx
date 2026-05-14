@@ -25,7 +25,7 @@ const LinkTitle = (props) => {
   const inputRef = React.useRef(null);
   const { option, tools } = useStores();
 
-  const { homeLinkTimeKey } = option.item;
+  const homeKeys = option.getHomeLinkTimeKeys();
 
   const onInputBlur = (event) => {
     const value = event.target.value;
@@ -83,13 +83,16 @@ const LinkTitle = (props) => {
         onClick: onDelete,
       },
     ];
-    if (homeLinkTimeKey == item.timeKey) {
+    if (homeKeys.includes(item.timeKey)) {
       menuItem.push({
         label: "从首屏移除",
         icon: <IconDeviceDesktopX />,
         key: "del-home",
         onClick: () => {
-          option.setItem("homeLinkTimeKey", null);
+          option.setItem(
+            "homeLinkTimeKeys",
+            homeKeys.filter((k) => k !== item.timeKey)
+          );
         },
       });
     } else {
@@ -98,12 +101,12 @@ const LinkTitle = (props) => {
         icon: <IconDeviceDesktop />,
         key: "add-home",
         onClick: () => {
-          option.setItem("homeLinkTimeKey", item.timeKey);
+          option.setItem("homeLinkTimeKeys", [...homeKeys, item.timeKey]);
         },
       });
     }
     tools.setRightClickEvent(e, menuItem);
-  }, [item.timeKey, homeLinkTimeKey]);
+  }, [item.timeKey, homeKeys]);
 
   return (
     <div className="link-title" onContextMenu={onContextMenu}>
@@ -123,7 +126,7 @@ const LinkTitle = (props) => {
           {item.title}
         </h4>
       )}
-      {homeLinkTimeKey == item.timeKey ? (
+      {homeKeys.includes(item.timeKey) ? (
         <Tooltip title="此分组已在首屏展示">
           <div className="link-title-icon">
             <IconDeviceDesktop

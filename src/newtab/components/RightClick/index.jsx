@@ -36,6 +36,7 @@ const MenuWrap = styled.div`
 const RightClick = (props) => {
   const { tools } = useStores();
   const ref = React.useRef(null);
+  const [pos, setPos] = React.useState(null);
 
   const onClick = (e) => {
     tools.setRightClickEvent(null);
@@ -49,22 +50,41 @@ const RightClick = (props) => {
     ["click", "contextmenu", "scroll"]
   );
 
+  // 根据视口边界调整菜单位置，避免被裁剪
+  React.useLayoutEffect(() => {
+    if (tools.rightClickOpen && ref.current) {
+      const { width, height } = ref.current.getBoundingClientRect();
+      const { mouseX, mouseY } = tools.rightClickEvent;
+      const pad = 8;
+      let left = mouseX;
+      let top = mouseY;
+      if (left + width > window.innerWidth) {
+        left = window.innerWidth - width - pad;
+      }
+      if (top + height > window.innerHeight) {
+        top = window.innerHeight - height - pad;
+      }
+      setPos({ top: Math.max(pad, top), left: Math.max(pad, left) });
+    } else {
+      setPos(null);
+    }
+  }, [tools.rightClickOpen, tools.rightClickEvent, tools.rightClickMenu]);
+
   if (!tools.rightClickOpen || !tools.rightClickMenu) {
     return null;
   }
 
   return (
-    <>
-      <MenuWrap
-        ref={ref}
-        style={{
-          top: tools.rightClickEvent.mouseY + "px",
-          left: tools.rightClickEvent.mouseX + "px",
-        }}
-      >
-        <Menu onClick={onClick} mode="vertical" items={tools.rightClickMenu} />
-      </MenuWrap>
-    </>
+    <MenuWrap
+      ref={ref}
+      style={{
+        top: (pos ? pos.top : tools.rightClickEvent.mouseY) + "px",
+        left: (pos ? pos.left : tools.rightClickEvent.mouseX) + "px",
+        visibility: pos ? "visible" : "hidden",
+      }}
+    >
+      <Menu onClick={onClick} mode="vertical" items={tools.rightClickMenu} />
+    </MenuWrap>
   );
 };
 export default observer(RightClick);
