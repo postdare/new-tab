@@ -343,6 +343,7 @@ const TabList = (props) => {
             name="tab-list"
             animation={150}
             selectedClass={"selected"}
+            forceFallback={true}
             group={{
               name: "linkItem",
               pull: "clone", // 使用 clone 模式，拖拽时创建副本，不从原列表移除
@@ -408,6 +409,7 @@ const TabList = (props) => {
           name="tab-list"
           animation={150}
           selectedClass={"selected"}
+          forceFallback={true}
           // fallbackTolerance={3}
           group={{
             name: "linkItem",

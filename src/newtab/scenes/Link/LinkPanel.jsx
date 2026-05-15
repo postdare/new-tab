@@ -432,6 +432,7 @@ const LinkPanel = (props) => {
           name="tab-list"
           animation={150}
           group="linkItem"
+          forceFallback={true}
           ghostClass={["link-item-ghost-new"]}
           list={[]}
           setList={(value) => {
@@ -456,6 +457,7 @@ const LinkPanel = (props) => {
           name="tab-list"
           animation={150}
           group="linkItem"
+          forceFallback={true}
           className="link-delect-panel-box"
           ghostClass={["link-item-delect"]}
           list={[]}

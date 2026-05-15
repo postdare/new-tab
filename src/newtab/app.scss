@@ -89,6 +89,8 @@ body {
 .link-item {
   cursor: pointer;
   position: relative;
+  user-select: none;
+  -webkit-user-select: none;
 
   .ant-tag {
     position: absolute;
