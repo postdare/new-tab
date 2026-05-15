@@ -47,6 +47,20 @@ const HomeLinkNav = styled.div`
   }
 `;
 
+const GroupTitle = styled.div`
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--textColor);
+  opacity: 0.7;
+  padding: 0 2px 10px;
+  letter-spacing: 0.3px;
+  font-weight: 500;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
 const SortableContainer = styled.div`
   display: grid;
   grid-template-columns: repeat(var(--home-link-cols, 4), auto);
@@ -59,10 +73,11 @@ const SortableWrapper = React.forwardRef((props, ref) => {
 });
 
 const HomeLinkGroup = observer((props) => {
-  const { group, isSoBarDown, showHomeLink, glassMode } = props;
+  const { group, isSoBarDown, showHomeLink, glassMode, showGroupTitle } = props;
   const { timeKey } = group;
   const { link } = useStores();
   const [linkList, setLinkList] = React.useState([]);
+  const title = showGroupTitle ? link.list.find((v) => v.timeKey === timeKey)?.title : null;
 
   // 同步外部传入的链接到内部 state
   React.useEffect(() => {
@@ -108,6 +123,7 @@ const HomeLinkGroup = observer((props) => {
 
   return (
     <HomeLinkNav style={{ "--home-link-cols": cols }}>
+      {title && showHomeLink ? <GroupTitle title={title}>{title}</GroupTitle> : null}
       <ReactSortable
         tag={SortableWrapper}
         list={linkList}
@@ -137,7 +153,7 @@ const HomeLinkGroup = observer((props) => {
 });
 
 const HomeLinkListComponent = (props) => {
-  const { homeGroups, isSoBarDown, stickled, showHomeLink, glassMode } = props;
+  const { homeGroups, isSoBarDown, stickled, showHomeLink, glassMode, showGroupTitle = true } = props;
 
   // 过滤出有链接的有效分组（必须在所有 hooks 之前计算）
   const validGroups = React.useMemo(() => {
@@ -156,9 +172,9 @@ const HomeLinkListComponent = (props) => {
       height: 0,
     }));
     validGroups.forEach((group) => {
-      // 每行约 5 个图标，每个图标槽约 73px，加上卡片上下 padding
+      // 每行约 5 个图标，每个图标槽约 73px，加上卡片上下 padding；启用标题时再加一行
       const rows = Math.ceil(group.links.length / 5);
-      const estHeight = rows * 73 + 30;
+      const estHeight = rows * 73 + 30 + (showGroupTitle ? 24 : 0);
       let target = cols[0];
       for (const col of cols) {
         if (col.height < target.height) {
@@ -169,7 +185,7 @@ const HomeLinkListComponent = (props) => {
       target.height += estHeight + 15;
     });
     return cols;
-  }, [validGroups]);
+  }, [validGroups, showGroupTitle]);
 
   if (validGroups.length === 0) {
     return null;
@@ -186,6 +202,7 @@ const HomeLinkListComponent = (props) => {
               isSoBarDown={isSoBarDown}
               showHomeLink={showHomeLink}
               glassMode={glassMode}
+              showGroupTitle={showGroupTitle}
             />
           ))}
         </MasonryColumn>

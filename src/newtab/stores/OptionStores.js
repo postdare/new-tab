@@ -100,6 +100,9 @@ const updateOptions = {
     syncType: 'webdav',
     githubToken: '',
     githubGistId: '',
+  },
+  18: {
+    showHomeGroupTitle: true,
   }
 }
 

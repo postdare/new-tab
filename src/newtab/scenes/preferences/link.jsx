@@ -48,7 +48,7 @@ const homeLinkMaxNumOption = [
 const PreferencesLink = () => {
     const { option, tools } = useStores();
     const _option = _.cloneDeep(option.item);
-    const { linkSpan, copyClose, defaultOpenAdd, defauiltLink, linkOpenSelf, showLinkNav, homeLinkMaxNum, rollingBack } = _option;
+    const { linkSpan, copyClose, defaultOpenAdd, defauiltLink, linkOpenSelf, showLinkNav, homeLinkMaxNum, rollingBack, showHomeGroupTitle = true } = _option;
 
     const handleChange = (value) => {
         if (!value || typeof value !== 'object') {
@@ -209,7 +209,8 @@ const PreferencesLink = () => {
                 linkOpenSelf,
                 showLinkNav,
                 homeLinkMaxNum,
-                rollingBack
+                rollingBack,
+                showHomeGroupTitle,
             }}
             onValuesChange={handleChange}
         >
@@ -227,6 +228,9 @@ const PreferencesLink = () => {
                     style={{ width: '100%' }}
                     options={homeLinkMaxNumOption}
                 />
+            </Form.Item>
+            <Form.Item name='showHomeGroupTitle' valuePropName="checked" style={{ marginBottom: 5 }}>
+                <Checkbox>在首屏显示分组名称</Checkbox>
             </Form.Item>
             <Divider />
 

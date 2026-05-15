@@ -253,7 +253,7 @@ const FirstScreen = (props) => {
   const { handleUnlock, unlock, showTopIcon } = props;
 
   const { home, tools, note, option, link } = useStores();
-  const { isSoBarDown, bgColor, bgType, showHomeClock, homeLinkMaxNum = 14, soHdCenter, bgImageFit = 'cover', bg2ImageFit = 'cover', homeGlassEffect } = option.item;
+  const { isSoBarDown, bgColor, bgType, showHomeClock, homeLinkMaxNum = 14, soHdCenter, bgImageFit = 'cover', bg2ImageFit = 'cover', homeGlassEffect, showHomeGroupTitle = true } = option.item;
 
   const effectiveKeys = option.getHomeLinkTimeKeys();
   const effectiveKeysSig = effectiveKeys.join(',');
@@ -566,6 +566,7 @@ const FirstScreen = (props) => {
         stickled={unlock}
         showHomeLink={showHomeLink}
         glassMode={homeGlassEffect}
+        showGroupTitle={showHomeGroupTitle}
       />
       <HomeNote stickled={unlock} />
     </>
