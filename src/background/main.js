@@ -1,6 +1,6 @@
 import { browserApi, getLastError } from "@/utils/browser";
 
-const cloudOptions = ['soList', 'activeSo', 'translateList', 'activeTranslate', 'linkSpan', 'copyClose', 'pwKey', 'defaultOpenAdd', 'soStyleIsRound', 'soAOpen', 'defauiltLink', 'isSoBarDown', 'linkOpenSelf', 'customkey', 'systemTheme', 'showHomeClock', 'homeLinkMaxNum', 'rollingBack', 'soHdCenter', 'tabTitle', 'webDavURL', 'webDavUsername', 'webDavPassword', 'webDavDir', 'homeImgOpacity'];
+const cloudOptions = ['soList', 'activeSo', 'translateList', 'activeTranslate', 'linkSpan', 'copyClose', 'pwKey', 'defaultOpenAdd', 'soStyleIsRound', 'soAOpen', 'defauiltLink', 'isSoBarDown', 'linkOpenSelf', 'customkey', 'systemTheme', 'showHomeClock', 'homeLinkMaxNum', 'rollingBack', 'soHdCenter', 'tabTitle', 'webDavURL', 'webDavUsername', 'webDavPassword', 'webDavDir', 'homeImgOpacity', 'syncType', 'githubToken', 'githubGistId'];
 
 let optionsValue = {};
 let saveOptionsValue = {};

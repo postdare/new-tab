@@ -8,7 +8,7 @@ import PreferencesLink from "./link"
 import PreferencesSo from "./so"
 import PreferencesData from "./data"
 import SystemData from "./system"
-import WebDAV from "./webDAV"
+import Sync from "./sync"
 
 
 const Wrap = styled.div`
@@ -42,8 +42,8 @@ const options = [
     label: '数据',
     value: 'data',
   }, {
-    label: 'WebDAV',
-    value: 'webDAV',
+    label: '同步',
+    value: 'sync',
   }
 ]
 
@@ -53,7 +53,7 @@ const content = {
   drawer: <PreferencesLink />,
   data: <PreferencesData />,
   system: <SystemData />,
-  webDAV: <WebDAV />,
+  sync: <Sync />,
 }
 
 const Preferences = () => {

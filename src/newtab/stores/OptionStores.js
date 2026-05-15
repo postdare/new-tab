@@ -15,7 +15,7 @@ import {
 
 const localStorageKeys = ['bgType', 'bg2Type', 'bgBase64', 'bg2Base64', 'webdavVersion'];
 
-const v = 16;
+const v = 17;
 const updateOptions = {
   1: {
     errData: '9527'
@@ -95,6 +95,11 @@ const updateOptions = {
   },
   16: {
     homeLinkTimeKeys: [],
+  },
+  17: {
+    syncType: 'webdav',
+    githubToken: '',
+    githubGistId: '',
   }
 }
 
@@ -137,7 +142,7 @@ export default class OptionStores {
             try {
               const syncData = await new Promise((resolve, reject) => {
                 if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
-                  chrome.storage.sync.get(['webDavURL', 'webDavUsername', 'webDavPassword', 'webDavDir'], (result) => {
+                  chrome.storage.sync.get(['webDavURL', 'webDavUsername', 'webDavPassword', 'webDavDir', 'syncType', 'githubToken', 'githubGistId'], (result) => {
                     if (chrome.runtime.lastError) {
                       reject(chrome.runtime.lastError);
                     } else {
@@ -149,47 +154,68 @@ export default class OptionStores {
                 }
               });
 
-              // 如果存在完整的 WebDAV 配置，尝试恢复
-              if (syncData?.webDavURL && syncData?.webDavUsername && syncData?.webDavPassword && syncData?.webDavDir) {
-                console.log('[WebDAV恢复] 检测到 Chrome Storage Sync 中有 WebDAV 配置，尝试恢复数据...');
-                
-                // 先初始化默认选项，等待一下确保默认选项已设置
+              // GitHub Gist 配置恢复
+              if (syncData?.syncType === 'github_gist' && syncData?.githubToken && syncData?.githubGistId) {
+                console.log('[GitHub Gist恢复] 检测到 Chrome Storage Sync 中有 GitHub Gist 配置，尝试恢复数据...');
+
                 this.update(0);
                 await new Promise(resolve => setTimeout(resolve, 300));
-                
-                // 先设置 webDavURL（确保 data.update() 能正确执行）
+
+                await Promise.all([
+                  this.setOption('syncType', 'github_gist'),
+                  this.setOption('githubToken', syncData.githubToken),
+                  this.setOption('githubGistId', syncData.githubGistId),
+                ]);
+
+                this.item.syncType = 'github_gist';
+                this.item.githubToken = syncData.githubToken;
+                this.item.githubGistId = syncData.githubGistId;
+
+                await this.setOption('webdavVersion', syncData.webdavVersion || 1);
+                this.item.webdavVersion = syncData.webdavVersion || 1;
+
+                this.isInit = true;
+
+                setTimeout(() => {
+                  this.rootStore.data.init();
+                  setTimeout(() => { this.rootStore.home.onLoadBg(); }, 1000);
+                }, 500);
+
+                return;
+              }
+
+              // WebDAV 配置恢复
+              if (syncData?.webDavURL && syncData?.webDavUsername && syncData?.webDavPassword && syncData?.webDavDir) {
+                console.log('[WebDAV恢复] 检测到 Chrome Storage Sync 中有 WebDAV 配置，尝试恢复数据...');
+
+                this.update(0);
+                await new Promise(resolve => setTimeout(resolve, 300));
+
                 await this.setOption('webDavURL', syncData.webDavURL);
                 this.item.webDavURL = syncData.webDavURL;
-                
-                // 然后并行设置其他 WebDAV 配置
+
                 await Promise.all([
                   this.setOption('webDavUsername', syncData.webDavUsername),
                   this.setOption('webDavPassword', syncData.webDavPassword),
                   this.setOption('webDavDir', syncData.webDavDir),
                 ]);
-                
-                // 将配置同步到 item 中
+
                 this.item.webDavUsername = syncData.webDavUsername;
                 this.item.webDavPassword = syncData.webDavPassword;
                 this.item.webDavDir = syncData.webDavDir;
-                
-                // 设置 WebDAV 开启状态和版本号
+
                 await this.setOption('webdavOpen', true);
                 await this.setOption('webdavVersion', syncData.webdavVersion || 1);
                 this.item.webdavOpen = true;
                 this.item.webdavVersion = syncData.webdavVersion || 1;
-                
-                // 标记已初始化，避免后续流程再次触发
+
                 this.isInit = true;
-                
-                // 等待一下确保数据已保存，然后触发 WebDAV 数据拉取
+
                 setTimeout(() => {
                   this.rootStore.data.init();
-                  setTimeout(() => {
-                    this.rootStore.home.onLoadBg();
-                  }, 1000);
+                  setTimeout(() => { this.rootStore.home.onLoadBg(); }, 1000);
                 }, 500);
-                
+
                 return;
               }
             } catch (error) {
