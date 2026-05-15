@@ -74,7 +74,7 @@ const LinkPanel = (props) => {
   const { linkSpan } = option.item;
   const { warpRef } = props;
   const [isMove, setIsMove] = React.useState(false);
-  const scrollContainerRef = React.useRef(null);
+  const [scrollContainer, setScrollContainer] = React.useState(null);
 
   const state = React.useRef({
     updateList: [],
@@ -295,7 +295,11 @@ const LinkPanel = (props) => {
             group="linkItem"
             ghostClass={[`link-item-ghost`]}
             list={list}
-            scroll={scrollContainerRef.current}
+            forceFallback={true}
+            scroll={scrollContainer || true}
+            scrollSensitivity={80}
+            scrollSpeed={20}
+            bubbleScroll={true}
             setList={(value) => {
               if (state.updateList[item.timeKey]) {
                 state.isChange = true;
@@ -413,7 +417,7 @@ const LinkPanel = (props) => {
         </div>
       );
     });
-  }, [link.titleLink, link.linkForId, linkSpan, onUpdate, setLinkItem, onDelete, onDelPanel, onCopyAll]);
+  }, [link.titleLink, link.linkForId, linkSpan, onUpdate, setLinkItem, onDelete, onDelPanel, onCopyAll, scrollContainer]);
 
   const newPanelDom = useCreation(() => {
     return (
@@ -484,10 +488,15 @@ const LinkPanel = (props) => {
   }, [addPanelToLinkItem$, link]);
 
   React.useEffect(() => {
-    if (warpRef.current && !scrollContainerRef.current) {
-      scrollContainerRef.current = warpRef.current.querySelector(".scroll-container");
+    if (warpRef.current && !scrollContainer) {
+      const container =
+        warpRef.current.closest(".scroll-container") ||
+        document.querySelector(".scroll-container");
+      if (container) {
+        setScrollContainer(container);
+      }
     }
-  }, [warpRef, scrollContainerRef])
+  }, [warpRef, scrollContainer])
 
   if (!link.isInit) {
     return null;
