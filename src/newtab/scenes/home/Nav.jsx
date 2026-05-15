@@ -287,7 +287,7 @@ const Nav = (props) => {
         key: "move-group",
         onClick: () => {
           tools.openPublicModal("MoveGroup", {
-          }, 'auto', '移动抽屉');
+          }, 500, '移动抽屉');
         },
       });
       menuArr.push({

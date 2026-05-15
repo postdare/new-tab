@@ -73,7 +73,7 @@ const LinkTitle = (props) => {
         key: "move-group",
         onClick: () => {
           tools.openPublicModal("MoveGroup", {
-          }, 'auto','移动分组');
+          }, 500, '移动分组');
         },
       },
       {

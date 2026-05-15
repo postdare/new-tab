@@ -1,42 +1,36 @@
 import React from "react";
 import { observer } from "mobx-react";
 import useStores from "~/hooks/useStores";
-import { Tree, Tooltip, Button } from "antd";
-import {
-    IconPencilMinus,
-} from "@tabler/icons-react";
+import { Button } from "antd";
+import { IconGripVertical } from "@tabler/icons-react";
 import styled from "styled-components";
 import { ReactSortable } from "react-sortablejs";
 import _ from "lodash";
 
 const transformArrayToTree = (items, homeId) => {
     const itemMap = _.keyBy(items, 'timeKey');
-
     const result = [];
 
     items.forEach(item => {
         if (!itemMap[item.timeKey].children) {
             itemMap[item.timeKey].children = [];
         }
-
         if (item.parentId === homeId) {
             result.push(itemMap[item.timeKey]);
-        } else {
-            if (itemMap[item.parentId]) {
-                if (!itemMap[item.parentId].children) {
-                    itemMap[item.parentId].children = [];
-                }
-                itemMap[item.parentId].children.push(itemMap[item.timeKey]);
+        } else if (itemMap[item.parentId]) {
+            if (!itemMap[item.parentId].children) {
+                itemMap[item.parentId].children = [];
             }
+            itemMap[item.parentId].children.push(itemMap[item.timeKey]);
         }
     });
+
     const sortChildren = (node) => {
         if (node.children) {
             node.children.sort((a, b) => a.sort - b.sort);
             node.children.forEach(child => sortChildren(child));
         }
     };
-
     result.forEach(sortChildren);
 
     const transformItem = (item) => ({
@@ -53,92 +47,138 @@ const transformArrayToTree = (items, homeId) => {
 const treeToArrayWithNewSort = (tree, parentId = null) => {
     let result = [];
     tree.forEach((node, index) => {
-        // 创建一个新的对象，包含原始所需的属性和新的 sort 值
-        const newItem = {
-            // title: node.title,
-            linkId: node.id, // 传递原始节点的 ID
-            timeKey: node.key, // 传递原始节点的 key
-            parentId: parentId, // 设置父节点 ID
-            sort: index // 使用当前索引作为新的 sort 值
-        };
-
-        // 删除不需要的 children 属性
-        delete newItem.children;
-
-        // 将当前节点加入结果数组
-        result.push(newItem);
-
-        // 如果存在子节点，递归处理子节点
-        if (node.children && node.children.length > 0) {
-            const childItems = treeToArrayWithNewSort(node.children, node.key); // 传递当前节点的 key 作为子节点的 parentId
-            result = result.concat(childItems);
+        result.push({ linkId: node.id, timeKey: node.key, parentId, sort: index });
+        if (node.children?.length > 0) {
+            result = result.concat(treeToArrayWithNewSort(node.children, node.key));
         }
     });
     return result;
 };
 
-const WrapBox = styled.div`
-    overflow: auto;
-    padding: 10px 0;
-`;
-const Wrap = styled.div`
-    display: flex;
-    gap: 10px;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-`;
-
-const Panel = styled.div`
-    border: 1px solid #eee;
-    border-radius: 4px;
-    background-color: var(--fff);
-    padding: 5px;
-    width: 100px;
-    flex: 0 0 auto;
+const Root = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 5px;
-    > span {
-        display: flex;
-        border-bottom: 1px solid #eee;
-        cursor: move;
-    }
-    .scroll-container {
-        flex: 1;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-        min-height: 180px;
-    }
+    gap: 0;
+    min-height: 260px;
 `;
 
-const Item = styled.div`
-    padding: 5px;
-    background-color: var(--fff);
-    border: 1px solid #eee;
-    border-radius: 2px;
-    font-size: 12px;
-    line-height: 1.2;
-    cursor: move;
-    transition: all 0.3s ease;
-    &:hover {
-        background-color: #f5f5f5;
-    }
-`;
-
-const WrapBtn = styled.div`
+const Body = styled.div`
     display: flex;
-    justify-content: center;
-    margin-top: 10px;
-    align-items: center;
+    gap: 0;
+    flex: 1;
+    border: 1px solid #eaecf0;
+    border-radius: 8px;
+    overflow: hidden;
 `;
 
-const MoveGroup = (props) => {
-    const {
-    } = props;
+const GroupCol = styled.div`
+    width: 160px;
+    flex-shrink: 0;
+    border-right: 1px solid #eaecf0;
+    display: flex;
+    flex-direction: column;
+`;
+
+const ColHeader = styled.div`
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #9ea5b0;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border-bottom: 1px solid #eaecf0;
+    background: #fafbfc;
+    user-select: none;
+`;
+
+const ColBody = styled.div`
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+`;
+
+const ItemCol = styled.div`
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+`;
+
+const GroupItem = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+    background: ${({ $active }) => $active ? '#eff6ff' : 'transparent'};
+    border: 1px solid ${({ $active }) => $active ? '#bfdbfe' : 'transparent'};
+    user-select: none;
+
+    svg { color: ${({ $active }) => $active ? '#93c5fd' : '#d1d5db'}; flex-shrink: 0; }
+    span {
+        font-size: 13px;
+        color: ${({ $active }) => $active ? '#1d4ed8' : '#374151'};
+        font-weight: ${({ $active }) => $active ? 500 : 400};
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+    }
+`;
+
+const SubItem = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+    margin: 2px 0;
+    border-radius: 6px;
+    background: #fff;
+    border: 1px solid #eaecf0;
+    cursor: grab;
+    transition: box-shadow 0.15s, border-color 0.15s;
+    user-select: none;
+
+    &:active { cursor: grabbing; }
+    &:hover {
+        border-color: #c7d2de;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    }
+    svg { color: #d1d5db; flex-shrink: 0; }
+    span {
+        font-size: 13px;
+        color: #374151;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+    }
+`;
+
+const EmptyHint = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 80px;
+    color: #c4c9d4;
+    font-size: 13px;
+`;
+
+const Footer = styled.div`
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 14px;
+`;
+
+const MoveGroup = () => {
     const { option, tools, link } = useStores();
     const [treeData, setTreeData] = React.useState([]);
+    const [activeKey, setActiveKey] = React.useState(null);
 
     const onInit = React.useCallback(() => {
         option.getHomeId().then((homeId) => {
@@ -147,8 +187,10 @@ const MoveGroup = (props) => {
                 list.push(...res);
                 link.getLinkByParentId(res.map((v) => v.timeKey)).then((v) => {
                     list.push(...v);
-                    setTreeData(transformArrayToTree(list, homeId));
-                })
+                    const tree = transformArrayToTree(list, homeId);
+                    setTreeData(tree);
+                    if (tree.length > 0) setActiveKey(tree[0].key);
+                });
             });
         });
     }, []);
@@ -156,66 +198,82 @@ const MoveGroup = (props) => {
     const onSave = React.useCallback(() => {
         option.getHomeId().then((homeId) => {
             const updateList = treeToArrayWithNewSort(treeData, homeId);
-            console.log('%c [ updateList ]-152', 'font-size:13px; background:pink; color:#bf2c9f;', updateList)
-            link.updateLink(updateList).then((res) => {
+            link.updateLink(updateList).then(() => {
                 link.restart();
                 tools.closePublicModal();
-            })
+            });
         });
+    }, [treeData]);
 
-    }, [treeData])
+    React.useEffect(() => { onInit(); }, []);
 
-
-    React.useEffect(() => {
-        onInit();
-    }, [])
-
+    const activeIndex = treeData.findIndex(g => g.key === activeKey);
+    const activeGroup = activeIndex >= 0 ? treeData[activeIndex] : null;
 
     return (
-        <WrapBox>
-            <ReactSortable
-                tag={Wrap}
-                className="scroll-container"
-                name="grout-list"
-                animation={150}
-                group="grout"
-                ghostClass={["grout-list-ghost"]}
-                list={treeData}
-                setList={(value) => {
-                    setTreeData(value);
-                }}
-            >
-                {treeData.map((item, key) => (
-                    <Panel key={item.key}>
-                        <span>{item.title}</span>
+        <Root>
+            <Body>
+                <GroupCol>
+                    <ColHeader>分组</ColHeader>
+                    <ColBody>
                         <ReactSortable
-                            className="scroll-container"
-                            name="grout-item"
                             animation={150}
-                            group="grout-item"
-                            ghostClass={["grout-list-ghost"]}
-                            list={treeData[key].children}
-                            setList={(value) => {
-                                setTreeData((old) => {
-                                    const newValue = _.cloneDeep(old);
-                                    newValue[key].children = value;
-                                    return newValue;
-                                });
-                            }}
+                            group="group-list"
+                            ghostClass="group-list-ghost"
+                            list={treeData}
+                            setList={setTreeData}
                         >
-                            {treeData[key].children.map((v, k) => (
-                                <Item key={v.key}>
-                                    <span>{v.title}</span>
-                                </Item>
+                            {treeData.map((item) => (
+                                <GroupItem
+                                    key={item.key}
+                                    $active={item.key === activeKey}
+                                    onClick={() => setActiveKey(item.key)}
+                                >
+                                    <IconGripVertical size={14} />
+                                    <span>{item.title}</span>
+                                </GroupItem>
                             ))}
                         </ReactSortable>
-                    </Panel>
-                ))}
-            </ReactSortable>
-            <WrapBtn>
+                    </ColBody>
+                </GroupCol>
+
+                <ItemCol>
+                    <ColHeader>
+                        {activeGroup ? `${activeGroup.title} · 子分组` : '子分组'}
+                    </ColHeader>
+                    <ColBody>
+                        {activeGroup ? (
+                            <ReactSortable
+                                animation={150}
+                                group="group-item"
+                                ghostClass="group-item-ghost"
+                                list={activeGroup.children}
+                                setList={(value) => {
+                                    setTreeData((old) => {
+                                        const next = _.cloneDeep(old);
+                                        next[activeIndex].children = value;
+                                        return next;
+                                    });
+                                }}
+                            >
+                                {activeGroup.children.map((v) => (
+                                    <SubItem key={v.key}>
+                                        <IconGripVertical size={14} />
+                                        <span>{v.title}</span>
+                                    </SubItem>
+                                ))}
+                            </ReactSortable>
+                        ) : (
+                            <EmptyHint>请选择分组</EmptyHint>
+                        )}
+                    </ColBody>
+                </ItemCol>
+            </Body>
+
+            <Footer>
                 <Button type="primary" onClick={onSave}>保存</Button>
-            </WrapBtn>
-        </WrapBox>
+            </Footer>
+        </Root>
     );
 };
 
