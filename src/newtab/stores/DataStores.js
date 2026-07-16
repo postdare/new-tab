@@ -83,9 +83,9 @@ export default class DataStores {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        description: '橘猫起始页数据备份',
+        description: 'NewTab 数据备份',
         public: false,
-        files: { 'jvmao-readme.txt': { content: '橘猫起始页同步数据，请勿手动修改此目录中的文件。' } },
+        files: { 'jvmao-readme.txt': { content: 'NewTab 同步数据，请勿手动修改此目录中的文件。' } },
       }),
     });
     if (!res.ok) throw new Error(`创建 Gist 失败: ${res.status} ${res.statusText}`);

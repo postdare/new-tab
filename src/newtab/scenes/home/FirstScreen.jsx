@@ -487,7 +487,7 @@ const FirstScreen = (props) => {
                 height: props.headerHeight,
               }}
             >
-              <img style={{ height: "45px", width: "45px" }} src={logoPng} alt="橘猫起始页" />
+              <img style={{ height: "45px", width: "45px" }} src={logoPng} alt="NewTab" />
             </div>
             <div
               style={{

@@ -17,7 +17,7 @@ const SpecialSearch = () => {
         const hostname = url.hostname;
         
         // 优先从 chrome.storage.local 获取查询内容（最可靠的方式）
-        const storageKey = `jvmaoQuery_${hostname}`;
+        const storageKey = `ntQuery_${hostname}`;
         
         // 从 chrome.storage 读取
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
@@ -56,8 +56,8 @@ const SpecialSearch = () => {
         function handleFallback() {
             // 尝试从 sessionStorage 读取
             try {
-                const storedQuery = sessionStorage.getItem('jvmaoQuery');
-                const storedTime = sessionStorage.getItem('jvmaoQueryTime');
+                const storedQuery = sessionStorage.getItem('ntQuery');
+                const storedTime = sessionStorage.getItem('ntQueryTime');
                 
                 if (storedQuery && storedTime) {
                     const timeDiff = Date.now() - parseInt(storedTime, 10);
@@ -65,8 +65,8 @@ const SpecialSearch = () => {
                         processSearch(storedQuery, url, hostname);
                         return;
                     } else {
-                        sessionStorage.removeItem('jvmaoQuery');
-                        sessionStorage.removeItem('jvmaoQueryTime');
+                        sessionStorage.removeItem('ntQuery');
+                        sessionStorage.removeItem('ntQueryTime');
                     }
                 }
             } catch (e) {
@@ -74,7 +74,7 @@ const SpecialSearch = () => {
             }
             
             // 最后尝试从 URL 参数读取（兼容性）
-            const urlQueryParam = url.searchParams.get("jvmaoQuery");
+            const urlQueryParam = url.searchParams.get("ntQuery");
             if (urlQueryParam) {
                 processSearch(urlQueryParam, url, hostname);
                 return;

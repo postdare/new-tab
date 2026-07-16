@@ -1,137 +1,45 @@
-<p align="center">
-    <a href="https://jvmao.net/" target="_blank" rel="noopener noreferrer">
-        <img width="100" src="https://i.v2ex.co/f37S9mrrb.png" alt="橘猫起始页 logo" />
-    </a>
-</p>
+# NewTab
 
-<p align="center"><b>橘猫起始页</b></p>
+Minimal browser new tab extension for Chrome / Firefox.
 
-------------------------------
+**Repo:** [postdare/new-tab](https://github.com/postdare/new-tab)
 
-### 介绍
+Based on [mumingfang/jvmaoTab](https://github.com/mumingfang/jvmaoTab) (MIT License).
 
-> 一个**极简**、**简单**的浏览器新标签页插件，注重细节与用户体验
+## Features
 
-#### ✨ 核心特点
+- Minimal home screen: wallpaper + search
+- Link drawer (groups, drag & drop, home shortcuts)
+- Aggregated search / custom search engines
+- Notes & time capsules
+- Local-first storage; WebDAV / GitHub Gist sync
+- Bing wallpaper, custom wallpaper, dark mode
 
-- 🎯 **极简设计** - 简洁界面，专注核心功能
-- 🚀 **简单易用** - 零学习成本，开箱即用
-- ☁️ **WebDAV 同步** - 支持 WebDAV 接口同步数据，多设备无缝切换
-- 🦊 **多浏览器支持** - 支持 Chrome 和 Firefox 浏览器
-
----
-
-#### 🎨 外观与显示模式
-
-- **极简设计**：仅有壁纸和一个搜索框
-- **灵活切换**：可设置成有时间和快捷链接的样式
-- **暗黑模式**：支持暗黑模式，护眼更舒适
-
----
-
-#### 🔍 聚合搜索
-
-- ✅ 集成聚合搜索功能
-- ⌨️ 支持**快捷键切换**及**自定义搜索源**
-- 🎯 **独特功能**：在搜索结果页中会罗列其他搜索引擎的图标
-- 🚀 点击即可携带当前搜索关键词跳转，**极大提升搜索效率**
-
-> 💡 **与其他标签页不同**：搜索结果页中会罗列其他搜索引擎图标，点击即可跳转
-
----
-
-#### 🖼️ 壁纸功能
-
-**基础功能：**
-- 📸 默认支持**必应壁纸**
-- 📁 支持**自定义上传**壁纸
-- 🎨 支持根据图片尺寸**智能判断壁纸展示方式**
-
-**第二壁纸（隐藏壁纸）：**
-- 🔒 默认不显示，**长按壁纸任意位置**显示
-- 👀 专为那些不敢在日常办公或学习环境中设置真正喜欢壁纸的用户设计
-- 🎭 可在没人的时候**偷偷查看**
-- 🌫️ 设置中默认**模糊显示**，鼠标移入才清晰显示
-
-> 💡 **贴心设计**：第二壁纸默认模糊，鼠标移入才清晰，保护隐私
-
----
-
-#### 📦 抽屉功能
-
-**基本操作：**
-- 🖱️ 滚动鼠标滚轮进入抽屉界面
-- ➕ 点击添加并拖拽网址到抽屉
-- ⚡ **一键添加**已打开的所有网址
-- 🖱️ 右击分组名称可**一键打开**或**复制网址**
-- 🌐 **任意网页右击收藏**到抽屉（添加到列表内）
-- 🎯 **首页图标支持拖拽排序**
-
-**数据安全与同步：**
-- 🔒 **纯离线存储**，绝对安全
-- 📡 除必应壁纸、搜索提示文案和简单设置选项同步外，**无任何联网数据调用**
-- ☁️ **WebDAV 同步** - 支持 WebDAV 接口同步数据，实现多设备数据同步
-- 💾 **图标缓存功能** - icon 图标自动缓存，提升加载速度
-
-**彩蛋功能：**
-- 🎮 在首屏无焦点时依次按方向键 **`上上下下左左右右`** 加字母 **`baba`**
-- 🔐 可激活**抽屉暗格**，存放私密网址
-
-> 💡 **使用场景**：如果正在忙一些事情，突然来个其他事，就可以一键把网址缓存起来，下次再重新打开
-
----
-
-#### 📝 便签功能
-
-**基础便签：**
-- ✍️ 可临时记录事情
-
-**快捷便签：**
-- 🖱️ 首屏任意位置**双击**可召唤快捷便签
-- 🎯 支持**拖拽**移动
-
-**网页内容快速保存：**
-- 📄 任意网页**框选文本**后右击选择 **"将选中文本存储至便签"**
-- 🖼️ 右击**图片**也可快速保存
-- 🔗 框选文本带链接也会被保留
-
-**时间胶囊（彩蛋功能）：**
-- ⏰ 首屏添加的便签，右击头部可变为**时间胶囊**
-- 📅 时间到了以后点击胶囊就会展示
-- 🎲 默认会**随机浮动未来日期**（比如选择月，并非准确的时间），增加不确定性
-- 💌 可给未来的自己写点想说的话
-
-> 💡 **王炸功能**：可以快速记录你在任意网站上发现的任何信息，方便日后整理
-
-### 相关介绍
-https://sspai.com/post/90463
-
-
-### 使用
+## Usage
 
 ```bash
- yarn && yarn build
+yarn && yarn build
 ```
 
-### 调试
+### Dev
+
 ```bash
- yarn && yarn d
+yarn && yarn d
 ```
-# 打包 Firefox 版本
+
+### Firefox build
+
 ```bash
- yarn && yarn build:firefox
+yarn && yarn build:firefox
 ```
 
-#### 在 Firefox 本地临时加载（开发/自用）
+#### Load temporarily in Firefox
 
-1. 打开 Firefox，地址栏输入：`about:debugging`
-2. 左侧选择：**This Firefox / 此 Firefox**
-3. 点击 **“Load Temporary Add-on / 加载临时附加组件”**
-4. 选择 `dist/manifest.json`（build 之后的 dist 目录下面）
-5. 成功后，新标签页打开就会进入橘猫起始页
+1. Open `about:debugging`
+2. Select **This Firefox**
+3. **Load Temporary Add-on**
+4. Choose `dist/manifest.json`
 
-> 注意：临时加载在重启浏览器后会失效，发布到 AMO 后安装的是正式版。
+## License
 
-### 共创人员
-
-- [tangxiaoguai](https://github.com/tangxiaoguai)
+MIT — see [LICENSE](./LICENSE).

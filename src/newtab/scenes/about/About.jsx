@@ -1,102 +1,105 @@
 import React from "react";
 import { observer } from "mobx-react";
-import { Modal, Form, Divider } from "antd";
-import useStores from "~/hooks/useStores";
 import styled from "styled-components";
-import { useLongPress, useMemoizedFn } from "ahooks";
-import logoMmf from "~/assets/logo-muming.png";
 import logo from "~/assets/logo.png";
 import manifest from "../../../manifest";
-import { writeText } from "~/utils";
+import updateRecords from "../../../updateRecords";
 
 const Wrap = styled.div`
-    padding: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: min(70vh, 560px);
+`;
+
+const Header = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 16px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--borderColor, #eee);
+  flex-shrink: 0;
+
+  img {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+
+  .meta {
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    gap: 200px;
+    gap: 2px;
+  }
+
+  .name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--colorText, #333);
+    line-height: 1.2;
+  }
+
+  .ver {
+    font-size: 12px;
+    color: #999;
+  }
 `;
-const LogoWrap = styled.div`
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    span {
-        letter-spacing: 1px;
-        color: #555;
-        font-size: 16px;
-    }
-    p {
-        margin: 0;
-        font-size: 12px;
-        color: #888;
-        margin-top: 3px;
-    }
-    i {
-        font-size: 12px;
-        color: #999;
-        font-style: normal;
-        margin-top: 14px;
-    } 
+
+const List = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
 `;
-const FooterWrap = styled.div`
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 10px;
-    margin: 0 0 20px;
-    a,span {
-        font-size: 12px;
-        color: #999;
-    }
+
+const Release = styled.section`
+  & + & {
+    margin-top: 16px;
+  }
+
+  h3 {
+    margin: 0 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--colorText, #333);
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 18px;
+  }
+
+  li {
+    font-size: 13px;
+    line-height: 1.55;
+    color: #666;
+    margin-bottom: 2px;
+  }
 `;
 
 const About = () => {
-    const { tools } = useStores();
-    const wrapRef = React.useRef();
-    const [i, setI] = React.useState(0);
-
-    const onCopy = useMemoizedFn((text) => {
-        writeText(text).then((res) => {
-            if (res) {
-                tools.messageApi.open({
-                    type: "success",
-                    content: "复制成功",
-                });
-            } else {
-                tools.messageApi.open({
-                    type: "error",
-                    content: "复制失败",
-                });
-            }
-        });
-    }, []);
-
-    useLongPress(() => {
-        setI(1);
-    }, wrapRef, {
-        onLongPressEnd: () => {
-            setI(0);
-        }
-    });
-
-    return (
-        <Wrap ref={wrapRef}>
-            <LogoWrap>
-                <img src={i ? logoMmf : logo} alt="霂明坊" width={120} height={120} />
-                <span>{i ? "霂明坊" : "橘猫起始页"}</span>
-                <p>解决问题，不是创造需求</p>
-                <i>{manifest.version}</i>
-            </LogoWrap>
-            <FooterWrap>
-                <a href="https://jvmao.net" target="_blank" rel="noopener noreferrer">官方网站</a>
-                <a href="https://space.bilibili.com/3546388988168879" target="_blank" rel="noopener noreferrer">哔哩哔哩</a>
-                <a href="https://github.com/mumingfang/jvmaoTab" target="_blank" rel="noopener noreferrer">Github</a>
-                <span onClick={() => onCopy('429303318')}>QQ群: 429303318</span>
-            </FooterWrap>
-
-        </Wrap>
-    );
+  return (
+    <Wrap>
+      <Header>
+        <img src={logo} alt="NewTab" />
+        <div className="meta">
+          <span className="name">NewTab</span>
+          <span className="ver">v{manifest.version}</span>
+        </div>
+      </Header>
+      <List className="scroll-container">
+        {updateRecords.map((record) => (
+          <Release key={record.version}>
+            <h3>{record.version}</h3>
+            <ul>
+              {record.items.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </Release>
+        ))}
+      </List>
+    </Wrap>
+  );
 };
+
 export default observer(About);

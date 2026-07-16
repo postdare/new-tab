@@ -26,9 +26,6 @@ import Storage from "~/utils/storage";
 
 const { useToken } = theme;
 
-const linkNavUrl = "https://n.mumingfang.com/?ref=jvmao";
-const groupUrl = "https://mumingfang.com/group-11-1.html?ref=jvmao";
-
 function getItem({
   label,
   key,
@@ -130,7 +127,7 @@ const NavLi = styled.li`
 
 const Nav = (props) => {
   const { link, tools, option, note } = useStores();
-  const { showLinkNav, linkOpenSelf, noteTab = [], hasNoteTrash } = option.item;
+  const { noteTab = [], hasNoteTrash } = option.item;
   const { token } = useToken();
   const navigate = useNavigate();
   const location = useLocation();
@@ -209,7 +206,7 @@ const Nav = (props) => {
     }));
 
     return n;
-  }, [link.linkNav, showLinkNav, noteTab, hasNoteTrash]);
+  }, [link.linkNav, noteTab, hasNoteTrash]);
 
   const isActive = useMemoizedFn((key, type) => {
     if (type == "link" && location.pathname == '/') {
@@ -233,26 +230,13 @@ const Nav = (props) => {
       navigate('/note');
       onNoteTitleClick(e.key);
       saveLActiveCache(e);
-    } else if (e.key === "Manual") {
-      tools.openPublicModal("Manual", {}, '90vw');
-      // option.resetOption("");
+    } else if (e.key === "Manual" || e.key === "About") {
+      tools.openPublicModal("About", {}, 440, "关于");
     } else if (e.key === "export") {
       tools.onExport();
-    } else if (e.key === "discuss") {
-      if (linkOpenSelf) {
-        window.location.href = groupUrl;
-      } else {
-        window.open(groupUrl);
-      }
-    } else if (e.key === "linkNav") {
-      if (linkOpenSelf) {
-        window.location.href = linkNavUrl;
-      } else {
-        window.open(linkNavUrl);
-      }
     }
 
-  }, [linkOpenSelf, navigate, onLinkTitleClick, onNoteTitleClick, tools]);
+  }, [navigate, onLinkTitleClick, onNoteTitleClick, tools]);
 
   const onContextMenu = useMemoizedFn((e, props) => {
     e.stopPropagation();
@@ -435,9 +419,7 @@ const Nav = (props) => {
         })}
       </NavTOP>
       <NavBottom>
-        <span onClick={() => onClick({ key: 'Manual' })}>关于</span>
-        {/* <span onClick={() => onClick({ key: 'discuss' })}>讨论</span> */}
-        {showLinkNav ? <span onClick={() => onClick({ key: 'linkNav' })}>导航</span> : null}
+        <span onClick={() => onClick({ key: 'About' })}>关于</span>
         <i>v{manifest.version}</i>
       </NavBottom>
     </NavWrap>

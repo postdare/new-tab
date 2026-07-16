@@ -105,7 +105,7 @@ export default class ToolsStores {
   onExport = async () => {
     try {
       const blob = await this.rootStore.data.get_dbData();
-      const fileName = `jvmao_${manifest.version}_${db.verno * 10}_${dayjs().format('YYMMDDHHmmss')}.json`;
+      const fileName = `newtab_${manifest.version}_${db.verno * 10}_${dayjs().format('YYMMDDHHmmss')}.json`;
       downloadBlob(blob, fileName);
       this.success('数据导出成功');
       return true;

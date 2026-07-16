@@ -1,9 +1,8 @@
 const manifest = {
   manifest_version: 3,
-  name: "橘猫起始页",
+  name: "NewTab",
   version: "1.4.1",
-  description: "起始页还可以是这样的",
-  homepage_url: "https://www.jvmao.net",
+  description: "Minimal browser new tab",
   icons: {
     "16": "16x16.png",
     "48": "48x48.png",

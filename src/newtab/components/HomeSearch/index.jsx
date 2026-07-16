@@ -122,7 +122,7 @@ const HomeSearch = (props) => {
           try {
             const baseUrlObj = new URL(activeSoItem.baseUrl);
             const hostname = baseUrlObj.hostname;
-            const storageKey = `jvmaoQuery_${hostname}`;
+            const storageKey = `ntQuery_${hostname}`;
             const queryData = {
               query: search,
               timestamp: Date.now(),
@@ -135,8 +135,8 @@ const HomeSearch = (props) => {
                 if (chrome.runtime.lastError) {
                   // 降级：使用 sessionStorage
                   try {
-                    sessionStorage.setItem('jvmaoQuery', search);
-                    sessionStorage.setItem('jvmaoQueryTime', Date.now().toString());
+                    sessionStorage.setItem('ntQuery', search);
+                    sessionStorage.setItem('ntQueryTime', Date.now().toString());
                   } catch (e) {
                     // 忽略错误
                   }
@@ -145,8 +145,8 @@ const HomeSearch = (props) => {
             } else {
               // 降级：如果 chrome API 不可用，使用 sessionStorage
               try {
-                sessionStorage.setItem('jvmaoQuery', search);
-                sessionStorage.setItem('jvmaoQueryTime', Date.now().toString());
+                sessionStorage.setItem('ntQuery', search);
+                sessionStorage.setItem('ntQueryTime', Date.now().toString());
               } catch (e) {
                 // 忽略错误
               }

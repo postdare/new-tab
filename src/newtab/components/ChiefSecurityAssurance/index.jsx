@@ -47,7 +47,7 @@ const ChiefSecurityAssurance = ({ children }) => {
             status="error"
             title="我们用这个界面来遮盖已经崩溃的页面"
             subTitle="发生这样的事情通常都是因为不可抗拒的因素导致的, 请尝试刷新页面。或者你也可以点击错误信息然后把它截图发给我们"
-            icon={<img style={{ height: "100px", width: "100px" }} src={logoPng} alt="橘猫起始页" />}
+            icon={<img style={{ height: "100px", width: "100px" }} src={logoPng} alt="NewTab" />}
             extra={[
               <Button type="primary" onClick={() => window.location.reload()}>
                 刷新页面

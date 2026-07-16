@@ -132,7 +132,7 @@ const HomeNoteComponent = (props) => {
                 icon: <IconInfoCircle />,
                 key: "about",
                 onClick: () => {
-                    tools.openPublicModal("Manual", {}, '90vw');
+                    tools.openPublicModal("About", {}, 440, "关于");
                 },
             },
         ];

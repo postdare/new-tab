@@ -60,7 +60,7 @@ const updateOptions = {
     customkey: []
   },
   9: {
-    showLinkNav: true,
+    showLinkNav: false,
   },
   10: {
     systemTheme: 'auto',
@@ -68,7 +68,7 @@ const updateOptions = {
     homeLinkMaxNum: 14,
     rollingBack: false,
     soHdCenter: false,
-    tabTitle: '橘猫起始页',
+    tabTitle: 'NewTab',
   },
   11: {
     webdavVersion: 1,

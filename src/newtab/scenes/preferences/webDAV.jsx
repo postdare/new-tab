@@ -135,7 +135,7 @@ const WebDAV = () => {
                         </Button>) : null}
                     </Space>
                     <Info>
-                        关于WebDAV的配置教程请<a href="https://n.mumingfang.com/archives/7576.html" target="_blank" >点击这里</a>
+                        填写 WebDAV 地址、账号、密码与同步目录后点击「设置」完成连接。
                     </Info>
                 </Form.Item>
                 <Divider />

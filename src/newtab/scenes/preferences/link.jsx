@@ -48,7 +48,7 @@ const homeLinkMaxNumOption = [
 const PreferencesLink = () => {
     const { option, tools } = useStores();
     const _option = _.cloneDeep(option.item);
-    const { linkSpan, copyClose, defaultOpenAdd, defauiltLink, linkOpenSelf, showLinkNav, homeLinkMaxNum, rollingBack, showHomeGroupTitle = true } = _option;
+    const { linkSpan, copyClose, defaultOpenAdd, defauiltLink, linkOpenSelf, homeLinkMaxNum, rollingBack, showHomeGroupTitle = true } = _option;
 
     const handleChange = (value) => {
         if (!value || typeof value !== 'object') {
@@ -207,7 +207,6 @@ const PreferencesLink = () => {
                 defaultOpenAdd,
                 defauiltLink,
                 linkOpenSelf,
-                showLinkNav,
                 homeLinkMaxNum,
                 rollingBack,
                 showHomeGroupTitle,
@@ -248,9 +247,6 @@ const PreferencesLink = () => {
             {/* <Divider /> */}
             <Form.Item name='linkOpenSelf' valuePropName="checked" style={{ marginBottom: 5 }}>
                 <Checkbox >链接在新标签页中打开</Checkbox>
-            </Form.Item>
-            <Form.Item name='showLinkNav' valuePropName="checked" style={{ marginBottom: 5 }}>
-                <Checkbox >在页脚里显示导航</Checkbox>
             </Form.Item>
             <Form.Item name='rollingBack' valuePropName="checked" style={{ marginBottom: 5 }}>
                 <Checkbox >支持滚动返回首屏</Checkbox>

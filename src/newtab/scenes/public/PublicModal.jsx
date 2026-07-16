@@ -6,8 +6,7 @@ import { useEventEmitter, useMemoizedFn } from "ahooks";
 import PageLoading from "~/components/PageLoading";
 
 const EditLink = React.lazy(() => import("~/scenes/Link/EditLink"));
-// const About = React.lazy(() => import("~/scenes/about/About"));
-const Manual = React.lazy(() => import("~/scenes/manual"));
+const About = React.lazy(() => import("~/scenes/about/About"));
 const MoveGroup = React.lazy(() => import("~/scenes/Link/MoveGroup"));
 
 function PublicModal() {
@@ -53,8 +52,9 @@ function PublicModal() {
         return <EditLink {...comProps} />;
       case "MoveGroup":
         return <MoveGroup {...comProps} />;
-      case "Manual":
-        return <Manual {...comProps} />;
+      case "About":
+      case "Manual": // 兼容旧调用
+        return <About {...comProps} />;
       default:
         return null;
     }

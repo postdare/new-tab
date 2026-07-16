@@ -1,5 +1,12 @@
 const updateRecords = [
     {
+        version: "1.4.1",
+        items: [
+            "优化: 壁纸渐进式加载，缩略图优先、高清后台补全",
+            "调整: 关于页改为简洁 Changelog",
+        ]
+    },
+    {
         version: "1.4.0",
         items: [
             "优化: 配置webdav之后兜底数据同步逻辑",

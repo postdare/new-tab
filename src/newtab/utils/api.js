@@ -108,41 +108,4 @@ export const get360imgList = ({ cat, page, count = 20 }) => {
   });
 };
 
-export const login = (data) => {
-  return new Promise((resolve, reject) => {
-    api
-      .post(host + "/api/jvmao_user/login", data)
-      .then((res) => {
-        resolve(res);
-      })
-      .catch((err) => {
-        reject(err);
-      });
-  });
-};
 
-export const ems = (data) => {
-  return new Promise((resolve, reject) => {
-    api
-      .post(host + "/api/ems/send", data)
-      .then((res) => {
-        resolve(res);
-      })
-      .catch((err) => {
-        reject(err);
-      });
-  });
-};
-
-export const getSessionToken = () => {
-  return new Promise((resolve, reject) => {
-    api
-      .post(host + "/api/jvmao_user/getSessionToken")
-      .then((res) => {
-        resolve(res);
-      })
-      .catch((err) => {
-        reject(err);
-      });
-  });
-};

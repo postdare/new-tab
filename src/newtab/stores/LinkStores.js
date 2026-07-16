@@ -331,30 +331,30 @@ export default class LinkStore extends BaseStore {
                   timeKey: timeKeyPanel,
                 },
                 {
-                  title: "摸鱼爱好者导航",
-                  url: "https://n.mumingfang.com/my",
+                  title: "示例链接",
+                  url: "https://www.google.com",
                   parentId: timeKeyPanel,
                   timeKey: getID(),
                 },
                 {
-                  title: "点击可进行访问",
-                  url: "https://n.mumingfang.com/my",
+                  title: "点击可访问",
+                  url: "https://github.com",
                   parentId: timeKeyPanel,
                   timeKey: getID(),
                 },
                 {
                   title: "右击可以删除",
-                  url: "https://n.mumingfang.com/my",
+                  url: "https://www.bing.com",
                   parentId: timeKeyPanel,
                   timeKey: getID(),
                 },
               ]; 
               this.addLink(links).then(() => {
                 this.getNav();
-                // 自动为默认链接获取图标（由于所有默认链接都是同一个 URL，只需要获取一次）
-                const defaultUrl = "https://n.mumingfang.com/my";
-                ensureFaviconForUrl(defaultUrl).catch((err) => {
-                  console.debug("[favicon] Failed to fetch favicon for default link", defaultUrl, err);
+                ["https://www.google.com", "https://github.com", "https://www.bing.com"].forEach((defaultUrl) => {
+                  ensureFaviconForUrl(defaultUrl).catch((err) => {
+                    console.debug("[favicon] Failed to fetch favicon for default link", defaultUrl, err);
+                  });
                 });
               })
             }, 0);

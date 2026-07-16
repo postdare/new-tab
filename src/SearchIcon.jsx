@@ -233,7 +233,7 @@ export const SoIcon = [
     host: ["www.doubao.com", "doubao.com"],
     url: "https://www.doubao.com", // 兼容字段，实际使用 baseUrl
     baseUrl: "https://www.doubao.com", // 基础URL（不含参数）
-    queryParam: "jvmaoQuery", // URL参数名（使用jvmao前缀避免冲突）
+    queryParam: "ntQuery", // URL参数名（专用前缀，避免与站点参数冲突）
     inputSelector: "textarea[placeholder*='输入'], textarea, #input", // 输入框选择器（支持多个，逗号分隔）
     isSpecialType: true, // 标记为特殊类型
     icon: (
@@ -277,7 +277,7 @@ export const SoIcon = [
     host: ["yuanbao.tencent.com"],
     url: "https://yuanbao.tencent.com",
     baseUrl: "https://yuanbao.tencent.com",
-    queryParam: "jvmaoQuery",
+    queryParam: "ntQuery",
     inputSelector: ".ql-editor, [role='textbox'][contenteditable='true']",
     delay: 500,
     isSpecialType: true,
@@ -314,7 +314,7 @@ export const SoIcon = [
     host: ["www.qianwen.com", "qianwen.com"],
     url: "https://www.qianwen.com",
     baseUrl: "https://www.qianwen.com",
-    queryParam: "jvmaoQuery",
+    queryParam: "ntQuery",
     inputSelector: "textarea[placeholder*='千问'], textarea, input[type='text']",
     delay: 500,
     isSpecialType: true,
@@ -343,7 +343,7 @@ export const SoIcon = [
     host: ["deepseek.com", "chat.deepseek.com"],
     url: "https://chat.deepseek.com",
     baseUrl: "https://chat.deepseek.com",
-    queryParam: "jvmaoQuery",
+    queryParam: "ntQuery",
     inputSelector: "textarea[placeholder*='给'], textarea, input[type='text']",
     delay: 500,
     isSpecialType: true,
@@ -369,7 +369,7 @@ export const SoIcon = [
     host: ["chatgpt.com", "www.chatgpt.com"],
     url: "https://chatgpt.com",
     baseUrl: "https://chatgpt.com",
-    queryParam: "jvmaoQuery",
+    queryParam: "ntQuery",
     inputSelector: ".ProseMirror, [role='textbox'][contenteditable='true']",
     delay: 500,
     isSpecialType: true,
@@ -391,7 +391,7 @@ export const SoIcon = [
     host: ["gemini.google.com", "www.gemini.google.com"],
     url: "https://gemini.google.com",
     baseUrl: "https://gemini.google.com",
-    queryParam: "jvmaoQuery",
+    queryParam: "ntQuery",
     inputSelector: ".ql-editor, [role='textbox'][contenteditable='true']",
     delay: 500,
     isSpecialType: true,

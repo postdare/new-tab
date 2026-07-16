@@ -293,7 +293,7 @@ const So = () => {
 
     return (
         <Wrap>
-            <Tooltip placement="right" title="橘猫起始页" >
+            <Tooltip placement="right" title="NewTab" >
                 <CloseIcon onClick={() => setClose(!close)} close={close}>
                     <IconArrowBarDown
                         size={14}
@@ -333,7 +333,7 @@ const So = () => {
                                     console.error("Error opening URL:", error);
                                 }
                             }}
-                            // style={{ "--jvmao-net-scale": (Array.isArray(n) && n[k] !== undefined) ? n[k] : 1 }}
+
                         >
                             <Tooltip placement="right" title={item.name} >
                                 {item.icon ? item.icon : (item.iconUrl ? (
