@@ -1,6 +1,17 @@
 import { browserApi, getLastError } from "@/utils/browser";
+import { handleSyncMessage } from "./sync";
 
 const cloudOptions = ['soList', 'activeSo', 'translateList', 'activeTranslate', 'linkSpan', 'copyClose', 'pwKey', 'defaultOpenAdd', 'soStyleIsRound', 'soAOpen', 'defauiltLink', 'isSoBarDown', 'linkOpenSelf', 'customkey', 'systemTheme', 'showHomeClock', 'homeLinkMaxNum', 'rollingBack', 'soHdCenter', 'tabTitle', 'webDavURL', 'webDavUsername', 'webDavPassword', 'webDavDir', 'homeImgOpacity', 'syncType', 'githubToken', 'githubGistId', 'showHomeGroupTitle'];
+
+const SYNC_MESSAGE_TYPES = new Set([
+  'SYNC_ACQUIRE_LOCK',
+  'SYNC_RELEASE_LOCK',
+  'SYNC_TOUCH_LOCK',
+  'SYNC_READ_FILE',
+  'SYNC_WRITE_FILE',
+  'SYNC_WRITE_FILES',
+  'SYNC_DELETE_FILE',
+]);
 
 let optionsValue = {};
 let saveOptionsValue = {};
@@ -81,6 +92,22 @@ const getOption = (sendResponse, values) => {
 }
 
 browserApi?.runtime?.onMessage.addListener(function (request, sender, sendResponse) {
+  if (SYNC_MESSAGE_TYPES.has(request?.type)) {
+    handleSyncMessage(request, sender)
+      .then((result) => {
+        if (result == null) {
+          sendResponse({ ok: false, error: `未知同步消息: ${request?.type}` });
+          return;
+        }
+        sendResponse(result);
+      })
+      .catch((error) => {
+        console.error('[sync]', request?.type, error);
+        sendResponse({ ok: false, error: error?.message || String(error) });
+      });
+    return true;
+  }
+
   switch (request.type) {
     case "setOptions":
       setOption(sendResponse, request.data);

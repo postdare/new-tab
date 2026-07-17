@@ -10,7 +10,9 @@ import {
   formatSizeUnits
 } from "~/utils";
 
-export const db = new Dexie("jvmao-tab");
+export const DB_NAME = "new-tab";
+
+export const db = new Dexie(DB_NAME);
 
 // 说明：
 // - favicon 表按域名（origin）存储站点图标，仅在链接真正被保存到抽屉时写入。

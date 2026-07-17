@@ -3,7 +3,7 @@ import { observer } from "mobx-react";
 import styled from "styled-components";
 import { Form, Upload, Divider, Button, Spin, Modal, Input } from "antd";
 import "dexie-export-import";
-import { db } from "~/db";
+import { db, DB_NAME } from "~/db";
 import { IconFileArrowLeft } from "@tabler/icons-react";
 import { ExclamationCircleFilled } from "@ant-design/icons";
 import _ from "lodash";
@@ -96,7 +96,8 @@ const PreferencesData = () => {
                                 }
                                 
                                 const databaseName = json.data.databaseName;
-                                if (databaseName !== 'jvmao-tab') {
+                                // 兼容缺省 databaseName 的旧导出；有值时必须与当前库名一致
+                                if (databaseName && databaseName !== DB_NAME) {
                                     throw new Error('数据库名称错误');
                                 }
                                 const databaseVersion = json.data.databaseVersion;
