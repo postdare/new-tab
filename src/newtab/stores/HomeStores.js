@@ -7,6 +7,7 @@ import api from "~/utils/api";
 import dayjs from 'dayjs'
 import {
   base64ToBlob,
+  downloadBlob,
 } from "~/utils";
 import Storage from "~/utils/storage";
 
@@ -170,6 +171,74 @@ export default class HomeStores {
       console.error('读取 Bing 背景缓存失败：', err);
       closeLoadingAndShowMessage('error', '读取缓存失败，请稍后重试');
     });
+  };
+
+  /**
+   * 将当前 Bing 壁纸保存到本地（真正触发浏览器下载）
+   * 优先使用已缓存的高清 Blob；失败时回退到 bgUrl 或远程 UHD 地址
+   */
+  downloadBingWallpaper = async () => {
+    if (this.rootStore?.option?.item?.bgType !== 'bing') {
+      return;
+    }
+
+    const messageApi = this.rootStore?.tools?.messageApi;
+    const hideLoading = messageApi?.loading?.('正在准备下载...', 0);
+
+    try {
+      let blob = null;
+
+      // 1. 优先使用本地已缓存的高清壁纸
+      blob = await Storage.getBlob('bingWallpaper').catch(() => null);
+
+      // 2. 没有高清缓存时，尝试缩略图缓存
+      if (!blob) {
+        blob = await Storage.getBlob('bingWallpaperThumb').catch(() => null);
+      }
+
+      // 3. 再回退到当前展示的 URL（blob: 或远程）
+      if (!blob && this.bgUrl) {
+        if (this.bgUrl.startsWith('blob:')) {
+          const res = await fetch(this.bgUrl);
+          if (res.ok) {
+            blob = await res.blob();
+          }
+        } else {
+          blob = await this.fetchImageBlob(this.bgUrl).catch(() => null);
+        }
+      }
+
+      // 4. 最后根据元数据拉远程 UHD
+      if (!blob) {
+        const metadata = await Storage.get('bingImg').catch(() => null);
+        const cache = this.convertOldCacheToNew(metadata);
+        if (cache?.urlbase) {
+          const srcUrl = `https://cn.bing.com${cache.urlbase}_UHD.jpg`;
+          blob = await this.fetchImageBlob(srcUrl);
+        }
+      }
+
+      if (!blob) {
+        throw new Error('未找到可下载的壁纸');
+      }
+
+      const metadata = await Storage.get('bingImg').catch(() => null);
+      const cache = this.convertOldCacheToNew(metadata);
+      const dateStr = cache?.time
+        ? dayjs(cache.time).format('YYYYMMDD')
+        : dayjs().format('YYYYMMDD');
+      const fileName = `bing_wallpaper_${dateStr}.jpg`;
+
+      downloadBlob(blob, fileName);
+      messageApi?.success?.('壁纸下载成功');
+    } catch (err) {
+      console.error('下载 Bing 壁纸失败：', err);
+      messageApi?.error?.(err?.message || '壁纸下载失败，请稍后重试');
+    } finally {
+      if (hideLoading) {
+        hideLoading();
+      }
+    }
   };
 
   /**

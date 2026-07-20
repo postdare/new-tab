@@ -145,7 +145,7 @@ const HomeNoteComponent = (props) => {
                 icon: <IconDownload />,
                 key: "downloadBing",
                 onClick: () => {
-                    window.open(home.bgUrl, '_blank');
+                    home.downloadBingWallpaper && home.downloadBingWallpaper();
                 },
             });
             list.push({
