@@ -130,3 +130,47 @@ export function buildTitleMap(linkList, timeKeys) {
   }
   return map;
 }
+
+const VIEW_MARGIN = 8;
+
+/** 将单个坐标限制在视口内（卡片超出视口时贴边，尽量完整可见） */
+export function clampPosition(left, top, cardW = 120, cardH = 100) {
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+  const maxLeft = Math.max(VIEW_MARGIN, vw - cardW - VIEW_MARGIN);
+  const maxTop = Math.max(VIEW_MARGIN, vh - cardH - VIEW_MARGIN);
+  return {
+    left: snap(Math.min(Math.max(left, VIEW_MARGIN), maxLeft)),
+    top: snap(Math.min(Math.max(top, VIEW_MARGIN), maxTop)),
+  };
+}
+
+/**
+ * 按估算尺寸把全部坐标 clamp 进视口
+ * @returns {{ next: object, changed: boolean }}
+ */
+export function clampAllPositions(positions, groups, showGroupTitle) {
+  if (!positions || typeof positions !== "object") {
+    return { next: {}, changed: false };
+  }
+  const sizeByKey = {};
+  (groups || []).forEach((g) => {
+    if (g?.timeKey) {
+      sizeByKey[g.timeKey] = estimateSize(g.links?.length || 1, showGroupTitle);
+    }
+  });
+
+  let changed = false;
+  const next = {};
+  Object.keys(positions).forEach((k) => {
+    const p = positions[k];
+    if (!p || typeof p.left !== "number" || typeof p.top !== "number") return;
+    const { w, h } = sizeByKey[k] || { w: 120, h: 100 };
+    const clamped = clampPosition(p.left, p.top, w, h);
+    next[k] = clamped;
+    if (clamped.left !== p.left || clamped.top !== p.top) {
+      changed = true;
+    }
+  });
+  return { next, changed };
+}

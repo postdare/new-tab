@@ -4,7 +4,7 @@ import styled from "styled-components";
 import { ReactSortable } from "react-sortablejs";
 import { DndContext, useDraggable } from "@dnd-kit/core";
 import { restrictToParentElement } from "@dnd-kit/modifiers";
-import { useMemoizedFn } from "ahooks";
+import { useMemoizedFn, useDebounceFn } from "ahooks";
 import useStores from "~/hooks/useStores";
 import useDebounce from "~/hooks/useDebounce";
 import LinkItemSmall from "~/scenes/Link/LinkItemSmall";
@@ -16,6 +16,9 @@ import {
   placeNewGroups,
   toPlainPositions,
   buildTitleMap,
+  clampAllPositions,
+  clampPosition,
+  estimateSize,
 } from "~/utils/homeLinkLayout";
 import { IconGripHorizontal } from "@tabler/icons-react";
 import _ from "lodash";
@@ -121,7 +124,22 @@ const SortableWrapper = React.forwardRef((props, ref) => {
   return <SortableContainer ref={ref}>{props.children}</SortableContainer>;
 });
 
-const HomeLinkGroup = observer((props) => {
+function areGroupPropsEqual(prev, next) {
+  return (
+    prev.left === next.left &&
+    prev.top === next.top &&
+    prev.zIndex === next.zIndex &&
+    prev.title === next.title &&
+    prev.isSoBarDown === next.isSoBarDown &&
+    prev.showHomeLink === next.showHomeLink &&
+    prev.glassMode === next.glassMode &&
+    prev.showGroupTitle === next.showGroupTitle &&
+    prev.group?.timeKey === next.group?.timeKey &&
+    prev.group?.links === next.group?.links
+  );
+}
+
+const HomeLinkGroupInner = (props) => {
   const {
     group,
     title,
@@ -223,7 +241,6 @@ const HomeLinkGroup = observer((props) => {
                   <LinkItemSmall
                     isSoBarDown={isSoBarDown}
                     {...v}
-                    skipEnterAnimation
                     className={glassMode ? "glass-card" : ""}
                   />
                 </div>
@@ -233,7 +250,10 @@ const HomeLinkGroup = observer((props) => {
       </HomeLinkNav>
     </GroupShell>
   );
-});
+};
+
+// memo 挡掉「拖一个分组时兄弟重渲染」；内部不在 render 期读 observable，无需 observer
+const HomeLinkGroup = React.memo(HomeLinkGroupInner, areGroupPropsEqual);
 
 const HomeLinkListComponent = (props) => {
   const {
@@ -253,6 +273,7 @@ const HomeLinkListComponent = (props) => {
   const positionsRef = React.useRef(positions);
   const initedKeysRef = React.useRef("");
   const appliedEpochRef = React.useRef(layoutEpoch);
+  const validGroupsRef = React.useRef([]);
 
   const validGroups = React.useMemo(() => {
     if (!homeGroups || !Array.isArray(homeGroups)) return [];
@@ -261,9 +282,10 @@ const HomeLinkListComponent = (props) => {
     );
   }, [homeGroups]);
 
+  validGroupsRef.current = validGroups;
+
   const validKeySig = validGroups.map((g) => g.timeKey).join(",");
 
-  // 父级一次扫描标题，子组件不再 link.list.find
   const titleByKey = React.useMemo(() => {
     if (!showGroupTitle) return {};
     return buildTitleMap(
@@ -339,6 +361,28 @@ const HomeLinkListComponent = (props) => {
     persistPositions,
   ]);
 
+  // 窗口缩放时把飞出视口的分组拉回来
+  const { run: clampOnResize } = useDebounceFn(
+    () => {
+      const groups = validGroupsRef.current;
+      if (!groups.length) return;
+      const { next, changed } = clampAllPositions(
+        positionsRef.current,
+        groups,
+        showGroupTitle
+      );
+      if (changed) {
+        persistPositions(next);
+      }
+    },
+    { wait: 150 }
+  );
+
+  React.useEffect(() => {
+    window.addEventListener("resize", clampOnResize);
+    return () => window.removeEventListener("resize", clampOnResize);
+  }, [clampOnResize]);
+
   const handleDragStart = useMemoizedFn((event) => {
     const id = String(event.active?.id || "");
     if (id.startsWith(DRAG_ID_PREFIX)) {
@@ -357,12 +401,20 @@ const HomeLinkListComponent = (props) => {
     const dy = delta?.y || 0;
     if (dx === 0 && dy === 0) return;
 
+    const group = validGroupsRef.current.find((g) => g.timeKey === timeKey);
+    const size = estimateSize(
+      group?.links?.length || 1,
+      showGroupTitle
+    );
+    const raw = {
+      left: snap(prev.left + dx),
+      top: snap(prev.top + dy),
+    };
+    const clamped = clampPosition(raw.left, raw.top, size.w, size.h);
+
     persistPositions({
       ...positionsRef.current,
-      [timeKey]: {
-        left: snap(prev.left + dx),
-        top: snap(prev.top + dy),
-      },
+      [timeKey]: clamped,
     });
   });
 
