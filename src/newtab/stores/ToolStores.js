@@ -33,6 +33,9 @@ export default class ToolsStores {
 
   timeKey = "";
 
+  /** 首屏分组布局重置信号（仅内存，不落库） */
+  homeLinkLayoutEpoch = 0;
+
   rootStore;
 
   constructor(rootStore) {
@@ -45,10 +48,18 @@ export default class ToolsStores {
       tabListDrawer: observable,
       openPublicModalEvent$: observable,
       timeKey: observable,
+      homeLinkLayoutEpoch: observable,
       setRightClickEvent: action,
       setOpenPublicModalEvent: action,
+      resetHomeLinkLayout: action,
     });
     this.rootStore = rootStore;
+  }
+
+  /** 清空已存坐标并通知首屏重新排布 */
+  resetHomeLinkLayout() {
+    this.rootStore.option.setItem("homeLinkPositions", {});
+    this.homeLinkLayoutEpoch += 1;
   }
 
   setRightClickEvent(e, menu = []) {

@@ -15,7 +15,7 @@ import {
 
 const localStorageKeys = ['bgType', 'bg2Type', 'bgBase64', 'bg2Base64', 'webdavVersion'];
 
-const v = 17;
+const v = 19;
 const updateOptions = {
   1: {
     errData: '9527'
@@ -103,7 +103,11 @@ const updateOptions = {
   },
   18: {
     showHomeGroupTitle: true,
-  }
+  },
+  19: {
+    // 首屏分组自由布局坐标：{ [timeKey]: { left, top } }
+    homeLinkPositions: {},
+  },
 }
 
 

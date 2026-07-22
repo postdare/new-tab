@@ -231,6 +231,31 @@ const PreferencesLink = () => {
             <Form.Item name='showHomeGroupTitle' valuePropName="checked" style={{ marginBottom: 5 }}>
                 <Checkbox>在首屏显示分组名称</Checkbox>
             </Form.Item>
+            <Form.Item style={{ marginBottom: 8 }}>
+                <Button
+                    type="default"
+                    block
+                    onClick={() => {
+                        Modal.confirm({
+                            title: '重置首屏分组布局？',
+                            icon: <ExclamationCircleOutlined />,
+                            content: '将清除已保存的分组位置，并按默认瀑布流重新排列。图标不会删除。',
+                            okText: '重置',
+                            okType: 'primary',
+                            cancelText: '取消',
+                            onOk: () => {
+                                tools.resetHomeLinkLayout();
+                                tools.messageApi?.open?.({
+                                    type: 'success',
+                                    content: '已重置首屏布局',
+                                });
+                            },
+                        });
+                    }}
+                >
+                    重置首屏分组布局
+                </Button>
+            </Form.Item>
             <Divider />
 
             <Form.Item name='defaultOpenAdd' valuePropName="checked" style={{ marginBottom: 5 }}>

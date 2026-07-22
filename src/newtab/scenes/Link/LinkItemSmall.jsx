@@ -47,7 +47,7 @@ const animations = {
 };
 
 const LinkItemSmallComponent = (props) => {
-    const { isSoBarDown, className } = props;
+    const { isSoBarDown, className, skipEnterAnimation = false } = props;
     const { option } = useStores();
     const { linkOpenSelf } = option.item;
 
@@ -84,8 +84,15 @@ const LinkItemSmallComponent = (props) => {
 
     const item = useCreation(() => {
         return (
-            <Tooltip title={props.title} placement={isSoBarDown ? "top" : "bottom"}>
-                <Wrap initial="hidden" animate="show" exit="hidden" variants={animations} isRound={option.item?.soStyleIsRound} className={className}>
+            <Tooltip title={props.title} placement={isSoBarDown ? "top" : "bottom"} mouseEnterDelay={0.35}>
+                <Wrap
+                    initial={skipEnterAnimation ? false : "hidden"}
+                    animate="show"
+                    exit="hidden"
+                    variants={animations}
+                    isRound={option.item?.soStyleIsRound}
+                    className={className}
+                >
                     <FavIconIcon size={28} url={props.url} />
                     <a
                         className="link-a"
@@ -98,7 +105,7 @@ const LinkItemSmallComponent = (props) => {
             </Tooltip>
 
         );
-    }, [props.title, props.url, linkOpenSelf, option.item?.soStyleIsRound, handleLinkClick, className]);
+    }, [props.title, props.url, linkOpenSelf, option.item?.soStyleIsRound, handleLinkClick, className, skipEnterAnimation, isSoBarDown]);
 
     return item;
 };
