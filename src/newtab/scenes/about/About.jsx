@@ -1,7 +1,7 @@
 import React from "react";
 import { observer } from "mobx-react";
 import styled from "styled-components";
-import logo from "~/assets/logo.png";
+import Wordmark from "~/components/Wordmark";
 import manifest from "../../../manifest";
 import updateRecords from "../../../updateRecords";
 
@@ -14,34 +14,22 @@ const Wrap = styled.div`
 const Header = styled.div`
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   padding-bottom: 16px;
   margin-bottom: 8px;
   border-bottom: 1px solid var(--borderColor, #eee);
   flex-shrink: 0;
 
-  img {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-  }
-
   .meta {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-  }
-
-  .name {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--colorText, #333);
-    line-height: 1.2;
+    gap: 4px;
   }
 
   .ver {
     font-size: 12px;
     color: #999;
+    letter-spacing: 0.02em;
   }
 `;
 
@@ -80,9 +68,8 @@ const About = () => {
   return (
     <Wrap>
       <Header>
-        <img src={logo} alt="NewTab" />
         <div className="meta">
-          <span className="name">NewTab</span>
+          <Wordmark size="lg" />
           <span className="ver">v{manifest.version}</span>
         </div>
       </Header>

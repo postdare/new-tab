@@ -21,6 +21,19 @@ const localStorageKeys = ['bgType', 'bg2Type', 'bgBase64', 'bg2Base64', 'webdavV
 
 const progressCallback = () => {}
 
+/**
+ * 扩展消息通道瞬时错误（MV3 SW 休眠、页面刷新等），不应弹 tips 打扰用户
+ */
+function isEphemeralExtensionMessageError(error) {
+  const msg = error?.message || String(error || '');
+  return (
+    /message channel closed/i.test(msg) ||
+    /asynchronous response by returning true/i.test(msg) ||
+    /Extension context invalidated/i.test(msg) ||
+    /The message port closed/i.test(msg)
+  );
+}
+
 export default class DataStores {
   provider = null;
   dir = '';
@@ -43,6 +56,16 @@ export default class DataStores {
     });
     this.rootStore = rootStore;
   }
+
+  /** 同步失败提示：通道类误报只打日志，其它仍 toast */
+  _reportSyncError = (label, error) => {
+    if (isEphemeralExtensionMessageError(error)) {
+      console.warn(`[sync] ${label}（已抑制 tips）:`, error?.message || error);
+      return;
+    }
+    const detail = error?.message || String(error || '未知错误');
+    this.rootStore.tools.error(`${label}: ${detail}`);
+  };
 
   _buildSyncConfig = (overrides = {}) => {
     const item = this.rootStore.option.item;
@@ -95,7 +118,7 @@ export default class DataStores {
         console.log('其他标签页正在同步，跳过本次', op);
         return 'busy';
       }
-      this.rootStore.tools.error(`同步异常: ${error.message || '未知错误'}`);
+      this._reportSyncError('同步异常', error);
       return 'error';
     }
 
@@ -270,7 +293,7 @@ export default class DataStores {
       this.waitType = 'pull';
       await this._pullBody(yunNyum);
     } catch (error) {
-      this.rootStore.tools.error(`同步拉取异常: ${error.message || '未知错误'}`);
+      this._reportSyncError('同步拉取异常', error);
     } finally {
       await this._endSync();
     }
@@ -408,7 +431,7 @@ export default class DataStores {
         await option.resetChromeSaveOption();
       } catch (error) {
         console.error(error);
-        tools.error(`同步数据错误: ${error.message}`);
+        this._reportSyncError('同步数据错误', error);
       }
 
       link.restart();
@@ -418,6 +441,11 @@ export default class DataStores {
       }
     } catch (error) {
       handleError(error, "DataStores._pullBody");
+
+      if (isEphemeralExtensionMessageError(error)) {
+        console.warn('[sync] 拉取过程通道中断（已抑制 tips）:', error?.message || error);
+        return;
+      }
 
       if (backupBlob && backupBlob.size > 0) {
         try {
@@ -442,7 +470,7 @@ export default class DataStores {
           }
 
           console.log('备份数据恢复成功');
-          tools.error(`同步失败，已恢复本地数据: ${error.message}`);
+          this._reportSyncError('同步失败，已恢复本地数据', error);
         } catch (restoreError) {
           handleError(restoreError, "DataStores._pullBody.restoreBackup");
           try {
@@ -452,10 +480,14 @@ export default class DataStores {
           } catch (openError) {
             handleError(openError, "DataStores._pullBody.reopenDb");
           }
-          tools.error(`同步失败且无法恢复数据: ${error.message}。恢复备份失败: ${restoreError.message}。请手动重新加载页面。`);
+          if (!isEphemeralExtensionMessageError(restoreError)) {
+            this.rootStore.tools.error(
+              `同步失败且无法恢复数据: ${error.message}。恢复备份失败: ${restoreError.message}。请手动重新加载页面。`
+            );
+          }
         }
       } else {
-        tools.error(`同步拉取失败: ${error.message}。无法恢复数据，请检查远端数据是否正常。`);
+        this._reportSyncError('同步拉取失败', error);
       }
     }
   };
@@ -501,7 +533,7 @@ export default class DataStores {
       await this._pushBody();
     } catch (error) {
       console.error('写入数据文件失败:', error);
-      this.rootStore.tools.error(`同步数据错误: ${error.message}`);
+      this._reportSyncError('同步数据错误', error);
     } finally {
       await this._endSync();
     }

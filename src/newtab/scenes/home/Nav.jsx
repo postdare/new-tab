@@ -1,6 +1,6 @@
 import React from "react";
 import { observer } from "mobx-react";
-import { Badge, theme, Divider } from "antd";
+import { Divider } from "antd";
 import styled from "styled-components";
 import {
   IconPencilMinus,
@@ -18,8 +18,6 @@ import { headerHeight } from "~/view/Home";
 import manifest from "../../../manifest";
 import Storage from "~/utils/storage";
 
-
-const { useToken } = theme;
 
 function getItem({
   label,
@@ -96,35 +94,63 @@ const NavBottom = styled.div`
 const NavLi = styled.li`
   display: flex;
   align-items: center;
-  padding: 0 20px 0 24px;
-  height: 40px;
+  padding: 0 16px 0 20px;
+  height: 36px;
   gap: 8px;
   cursor: pointer;
-  border-radius: ${(props) => (props.color.borderRadius)}px;
+  border-radius: 8px;
+  margin: 0 8px;
   color: var(--colorText);
-  &.active {
-    background-color: ${(props) => (props.color.bgColor)};
-    color: ${(props) => (props.color.color)};
-  }
+  opacity: 0.72;
+  transition: background-color 0.15s ease, opacity 0.15s ease, color 0.15s ease;
+  position: relative;
+
   &:hover {
-    background-color: ${(props) => (props.color.bgColorHover)};
+    opacity: 1;
+    background-color: ${(props) =>
+      props.$isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.04)"};
   }
+
+  &.active {
+    opacity: 1;
+    font-weight: 600;
+    color: var(--colorText);
+    background-color: ${(props) =>
+      props.$isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.06)"};
+
+    /* 左侧细条点缀，比整块主色底更干净 */
+    &::before {
+      content: "";
+      position: absolute;
+      left: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 14px;
+      border-radius: 2px;
+      background: var(--colorText);
+      opacity: 0.35;
+    }
+  }
+
   span {
-    font-size: 14px;
+    font-size: 13px;
   }
-  &+&{
-    margin-top: 4px;
+
+  & + & {
+    margin-top: 2px;
   }
-  &:last-child{
+
+  &:last-child {
     margin-bottom: 28px;
   }
 `;
 
 const Nav = (props) => {
-  const { link, tools } = useStores();
-  const { token } = useToken();
+  const { link, tools, option } = useStores();
   const navigate = useNavigate();
   const location = useLocation();
+  const isDark = option.getSystemTheme?.() === "dark";
 
   const state = useReactive(
     {
@@ -327,15 +353,11 @@ const Nav = (props) => {
           return (
             <NavLi
               className={isActive(v.key, v.type) ? "active" : ""}
-              color={{
-                borderRadius: token.borderRadius,
-                bgColor: token.colorPrimaryBg,
-                color: token.colorPrimaryText,
-                bgColorHover: token.controlItemBgHover,
-              }}
+              $isDark={isDark}
               onClick={() => onClick(v)}
               onContextMenu={(e) => onContextMenu(e, v)}
-              key={v.key}>
+              key={v.key}
+            >
               {v.icon}
               <span>{v.label}</span>
             </NavLi>

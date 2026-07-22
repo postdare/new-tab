@@ -68,7 +68,8 @@ const Tower = ({ children }) => {
     const t = {
       cssVar: true,
       token: {
-        colorPrimary: '#e06400',
+        // 中性 slate，避免刺眼橙色
+        colorPrimary: '#5b6570',
       },
     }
     if (isDark) {

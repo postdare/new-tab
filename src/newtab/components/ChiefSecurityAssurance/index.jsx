@@ -4,8 +4,7 @@ import styled from "styled-components";
 import { ErrorBoundary } from "react-error-boundary";
 import { observer } from "mobx-react";
 import useStores from "~/hooks/useStores";
-import logoPng from "~/assets/logo.png";
-
+import Wordmark from "~/components/Wordmark";
 
 const ErrWap = styled.div`
   max-width: 600px;
@@ -14,6 +13,11 @@ const ErrWap = styled.div`
   svg {
     color: red;
   }
+`;
+
+const ErrMark = styled.div`
+  margin-bottom: 8px;
+  opacity: 0.85;
 `;
 
 const Pre = styled.pre`
@@ -39,7 +43,7 @@ const ChiefSecurityAssurance = ({ children }) => {
         <ConfigProvider
           theme={{
             token: {
-              colorPrimary: '#e06400',
+              colorPrimary: '#5b6570',
             },
           }}
         >
@@ -47,7 +51,11 @@ const ChiefSecurityAssurance = ({ children }) => {
             status="error"
             title="我们用这个界面来遮盖已经崩溃的页面"
             subTitle="发生这样的事情通常都是因为不可抗拒的因素导致的, 请尝试刷新页面。或者你也可以点击错误信息然后把它截图发给我们"
-            icon={<img style={{ height: "100px", width: "100px" }} src={logoPng} alt="NewTab" />}
+            icon={
+              <ErrMark>
+                <Wordmark size="xl" />
+              </ErrMark>
+            }
             extra={[
               <Button type="primary" onClick={() => window.location.reload()}>
                 刷新页面

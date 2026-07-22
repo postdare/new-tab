@@ -150,7 +150,7 @@ const Home = (props) => {
           }
         } else {
           if (v.scrollTopNum === 3) {
-            tools.messageApi.warning("请点击 [左侧按钮] 或按 [Esc] 键返回顶部");
+            tools.messageApi.warning("请按 Esc 键返回首屏");
             setTimeout(() => {
               v.showTopIcon = true;
               setTimeout(() => {

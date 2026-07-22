@@ -4,14 +4,14 @@ import { observer } from "mobx-react";
 import { theme, Button, Tooltip, Badge } from "antd";
 import { useLocation } from "react-router-dom";
 import useStores from "~/hooks/useStores";
-import { IconCirclePlus } from "@tabler/icons-react";
+import { IconCirclePlus, IconChevronUp } from "@tabler/icons-react";
 import { motion, useAnimationControls } from "framer-motion";
 import { useUpdateEffect, useHover, useMemoizedFn, useCreation } from "ahooks";
-import logoPng from "~/assets/logo.png";
 import HomeLinkList from "./HomeLinkList";
 import HomeBgLayer from "./HomeBgLayer";
 import HomeSearch from "~/components/HomeSearch";
 import Clock from "~/components/Clock";
+import Wordmark from "~/components/Wordmark";
 import _ from "lodash";
 
 
@@ -152,17 +152,15 @@ const LogoWrap = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
-  line-height: 1;
-  color: #000;
   position: relative;
   overflow: hidden;
   opacity: var(--homeLogoOpacity);
-  svg {
-    width: 24px;
-    height: 24px;
-  }
   cursor: pointer;
+  transition: opacity 0.2s ease;
+
+  &:hover {
+    opacity: 1;
+  }
 `;
 const LogoIconWrap = styled(motion.div)`
   position: absolute;
@@ -173,6 +171,25 @@ const LogoIconWrap = styled(motion.div)`
     display: flex;
     justify-content: center;
     align-items: center;
+  }
+`;
+
+const LogoBackHint = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: ${(p) => p.$color};
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  opacity: 0.9;
+
+  svg {
+    width: 18px;
+    height: 18px;
   }
 `;
 const NavRight = styled.div`
@@ -470,44 +487,26 @@ const FirstScreen = (props) => {
           onClick={() => {
             handleUnlock();
           }}
+          title="返回首屏"
         >
           <LogoIconWrap
-            style={{
-              y: "0",
-            }}
+            style={{ y: "0" }}
             animate={{
               y:
                 showTopIcon || isLogoIconHovering
                   ? `-${props.headerHeight}px`
                   : "0",
             }}
+            transition={{ duration: 0.28, ease: "easeOut" }}
           >
-            <div
-              style={{
-                height: props.headerHeight,
-              }}
-            >
-              <img style={{ height: "45px", width: "45px" }} src={logoPng} alt="NewTab" />
+            <div style={{ height: props.headerHeight }}>
+              <Wordmark size="md" />
             </div>
-            <div
-              style={{
-                height: props.headerHeight,
-                color: token.colorPrimary,
-              }}
-            >
-              <svg
-                viewBox="0 0 1024 1024"
-                version="1.1"
-                xmlns="http://www.w3.org/2000/svg"
-                width="50"
-                height="50"
-              >
-                <path fill="currentColor" d="M512.075616 978.448399C254.405694 978.448399 45.551601 769.594306 45.551601 512S254.405694 45.551601 512.075616 45.551601C769.594306 45.551601 978.448399 254.405694 978.448399 512S769.594306 978.448399 512.075616 978.448399z"></path>
-                <path
-                  d="M356.516897 667.482192 512 512l155.483103 155.483103L745.224199 589.742007l-233.224199-233.224199-233.224199 233.224199L356.516897 667.482192z"
-                  fill="#FFFFFF"
-                ></path>
-              </svg>
+            <div style={{ height: props.headerHeight }}>
+              <LogoBackHint $color={token.colorPrimary}>
+                <IconChevronUp stroke={1.8} />
+                <span>Esc</span>
+              </LogoBackHint>
             </div>
           </LogoIconWrap>
         </LogoWrap>
