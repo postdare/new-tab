@@ -9,15 +9,16 @@ import useStores from "~/hooks/useStores";
 import useDebounce from "~/hooks/useDebounce";
 import LinkItemSmall from "~/scenes/Link/LinkItemSmall";
 import { filterLinkList } from "~/utils";
+import {
+  DRAG_ID_PREFIX,
+  snap,
+  computeDefaultPositions,
+  placeNewGroups,
+  toPlainPositions,
+  buildTitleMap,
+} from "~/utils/homeLinkLayout";
 import { IconGripHorizontal } from "@tabler/icons-react";
 import _ from "lodash";
-
-const SNAP = 10;
-const ICON_SLOT = 58;
-const GAP = 15;
-const CARD_PAD = 32;
-const TITLE_H = 22;
-const DRAG_ID_PREFIX = "home-link-group_";
 
 const HomeLinkOuter = styled.div`
   position: absolute;
@@ -29,13 +30,6 @@ const HomeLinkOuter = styled.div`
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
-`;
-
-const DndSurface = styled.div`
-  position: relative;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
 `;
 
 const GroupShell = styled.div`
@@ -127,114 +121,10 @@ const SortableWrapper = React.forwardRef((props, ref) => {
   return <SortableContainer ref={ref}>{props.children}</SortableContainer>;
 });
 
-function snap(n) {
-  return Math.round(n / SNAP) * SNAP;
-}
-
-function estimateSize(linkCount, showTitle) {
-  const cols = Math.min(Math.max(linkCount, 1), 4);
-  const rows = Math.ceil(Math.max(linkCount, 1) / cols);
-  const w = cols * ICON_SLOT + (cols - 1) * GAP + CARD_PAD;
-  const h =
-    rows * ICON_SLOT + (rows - 1) * GAP + CARD_PAD + (showTitle ? TITLE_H : 8);
-  return { w, h };
-}
-
-/** 无已存坐标时，用 3 列瀑布流生成默认绝对坐标（相对视口） */
-function computeDefaultPositions(groups, showGroupTitle, isSoBarDown) {
-  if (!groups.length) return {};
-  const items = groups.map((g) => ({
-    timeKey: g.timeKey,
-    ...estimateSize(g.links?.length || 1, showGroupTitle),
-  }));
-  const colCount = Math.min(3, items.length);
-  const cols = Array.from({ length: colCount }, () => ({
-    items: [],
-    height: 0,
-    width: 0,
-  }));
-  items.forEach((item) => {
-    let target = cols[0];
-    for (const c of cols) {
-      if (c.height < target.height) target = c;
-    }
-    target.items.push(item);
-    target.height += item.h + GAP;
-    target.width = Math.max(target.width, item.w);
-  });
-
-  const totalW =
-    cols.reduce((s, c) => s + c.width, 0) + Math.max(0, colCount - 1) * GAP;
-  const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
-  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-  const startX = Math.max(16, (vw - totalW) / 2);
-  const startY = isSoBarDown
-    ? Math.max(24, vh * 0.12)
-    : Math.max(80, vh * 0.3 + 60);
-
-  const positions = {};
-  let x = startX;
-  cols.forEach((col) => {
-    let y = startY;
-    col.items.forEach((item) => {
-      positions[item.timeKey] = {
-        left: snap(x),
-        top: snap(y),
-      };
-      y += item.h + GAP;
-    });
-    x += col.width + GAP;
-  });
-  return positions;
-}
-
-/** 已有部分坐标时，给新分组找不重叠的起点 */
-function placeNewGroups(groups, existing, isSoBarDown) {
-  if (!groups.length) return {};
-  const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
-  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-  let anchorLeft = Math.max(24, vw / 2 - 80);
-  let anchorTop = isSoBarDown
-    ? Math.max(24, vh * 0.12)
-    : Math.max(80, vh * 0.3 + 60);
-
-  const existingEntries = Object.values(existing || {});
-  if (existingEntries.length > 0) {
-    let maxRight = 0;
-    let minTop = Infinity;
-    existingEntries.forEach((p) => {
-      if (typeof p?.left === "number") maxRight = Math.max(maxRight, p.left + 120);
-      if (typeof p?.top === "number") minTop = Math.min(minTop, p.top);
-    });
-    if (minTop !== Infinity) anchorTop = minTop;
-    anchorLeft = Math.min(maxRight + GAP, vw - 160);
-  }
-
-  const positions = {};
-  groups.forEach((g, i) => {
-    positions[g.timeKey] = {
-      left: snap(anchorLeft + i * 24),
-      top: snap(anchorTop + i * 24),
-    };
-  });
-  return positions;
-}
-
-function toPlainPositions(raw) {
-  if (!raw || typeof raw !== "object") return {};
-  const plain = {};
-  Object.keys(raw).forEach((k) => {
-    const p = raw[k];
-    if (p && typeof p.left === "number" && typeof p.top === "number") {
-      plain[k] = { left: p.left, top: p.top };
-    }
-  });
-  return plain;
-}
-
 const HomeLinkGroup = observer((props) => {
   const {
     group,
+    title,
     isSoBarDown,
     showHomeLink,
     glassMode,
@@ -246,9 +136,6 @@ const HomeLinkGroup = observer((props) => {
   const { timeKey } = group;
   const { link } = useStores();
   const [linkList, setLinkList] = React.useState([]);
-  const title = showGroupTitle
-    ? link.list.find((v) => v.timeKey === timeKey)?.title
-    : null;
 
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
@@ -290,6 +177,7 @@ const HomeLinkGroup = observer((props) => {
   }
 
   const cols = Math.min(linkList.length, 4);
+  const showTitle = showGroupTitle && title && showHomeLink;
 
   return (
     <GroupShell
@@ -312,9 +200,7 @@ const HomeLinkGroup = observer((props) => {
           title="拖动调整位置"
         >
           <IconGripHorizontal size={14} stroke={1.6} />
-          {title && showHomeLink ? (
-            <GroupTitle title={title}>{title}</GroupTitle>
-          ) : null}
+          {showTitle ? <GroupTitle title={title}>{title}</GroupTitle> : null}
         </DragHandle>
         <ReactSortable
           tag={SortableWrapper}
@@ -358,10 +244,9 @@ const HomeLinkListComponent = (props) => {
     glassMode,
     showGroupTitle = true,
   } = props;
-  const { option, tools } = useStores();
+  const { option, tools, link } = useStores();
   const layoutEpoch = tools.homeLinkLayoutEpoch;
   const [activeKey, setActiveKey] = React.useState(null);
-  // 本地位置状态：拖拽与展示都以此为准，落库用 setItem
   const [positions, setPositions] = React.useState(() =>
     toPlainPositions(option.item.homeLinkPositions)
   );
@@ -378,7 +263,15 @@ const HomeLinkListComponent = (props) => {
 
   const validKeySig = validGroups.map((g) => g.timeKey).join(",");
 
-  /** 统一写本地 state + IndexedDB（toPlainPositions 已是纯对象，无需 cloneDeep） */
+  // 父级一次扫描标题，子组件不再 link.list.find
+  const titleByKey = React.useMemo(() => {
+    if (!showGroupTitle) return {};
+    return buildTitleMap(
+      link.list,
+      validGroups.map((g) => g.timeKey)
+    );
+  }, [link.list, validKeySig, showGroupTitle, validGroups]);
+
   const persistPositions = useMemoizedFn((next) => {
     const plain = toPlainPositions(next);
     positionsRef.current = plain;
@@ -388,13 +281,11 @@ const HomeLinkListComponent = (props) => {
     });
   });
 
-  // 补全缺失坐标 / 重置重排；不依赖 homeLinkPositions，避免拖拽落库反复进 effect
   React.useEffect(() => {
     if (validGroups.length === 0) return;
 
     const forceRelayout = layoutEpoch !== appliedEpochRef.current;
 
-    // 同批 keys 只初始化一次；显式 epoch 变化时强制重排
     if (!forceRelayout && initedKeysRef.current === validKeySig) return;
 
     const fromStore = forceRelayout
@@ -417,7 +308,6 @@ const HomeLinkListComponent = (props) => {
     appliedEpochRef.current = layoutEpoch;
 
     if (missing.length === 0) {
-      // 仅同步本地；有失效 key 时统一走 persist 剪枝落库
       if (!_.isEqual(pruned, fromStore)) {
         persistPositions(pruned);
       } else {
@@ -467,15 +357,13 @@ const HomeLinkListComponent = (props) => {
     const dy = delta?.y || 0;
     if (dx === 0 && dy === 0) return;
 
-    const nextPos = {
-      left: snap(prev.left + dx),
-      top: snap(prev.top + dy),
-    };
-    const next = {
+    persistPositions({
       ...positionsRef.current,
-      [timeKey]: nextPos,
-    };
-    persistPositions(next);
+      [timeKey]: {
+        left: snap(prev.left + dx),
+        top: snap(prev.top + dy),
+      },
+    });
   });
 
   if (validGroups.length === 0) {
@@ -490,27 +378,26 @@ const HomeLinkListComponent = (props) => {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <DndSurface>
-          {validGroups.map((group, index) => {
-            const pos = positions[group.timeKey] || {
-              left: 40 + index * 24,
-              top: 200 + index * 24,
-            };
-            return (
-              <HomeLinkGroup
-                key={group.timeKey}
-                group={group}
-                isSoBarDown={isSoBarDown}
-                showHomeLink={showHomeLink}
-                glassMode={glassMode}
-                showGroupTitle={showGroupTitle}
-                left={pos.left}
-                top={pos.top}
-                zIndex={activeKey === group.timeKey ? 20 : index + 1}
-              />
-            );
-          })}
-        </DndSurface>
+        {validGroups.map((group, index) => {
+          const pos = positions[group.timeKey] || {
+            left: 40 + index * 24,
+            top: 200 + index * 24,
+          };
+          return (
+            <HomeLinkGroup
+              key={group.timeKey}
+              group={group}
+              title={titleByKey[group.timeKey]}
+              isSoBarDown={isSoBarDown}
+              showHomeLink={showHomeLink}
+              glassMode={glassMode}
+              showGroupTitle={showGroupTitle}
+              left={pos.left}
+              top={pos.top}
+              zIndex={activeKey === group.timeKey ? 20 : index + 1}
+            />
+          );
+        })}
       </DndContext>
     </HomeLinkOuter>
   );
