@@ -1,5 +1,4 @@
 /* 滚动条整体 */
-.tiptap.ProseMirror,
 .scroll-container {
   scroll-behavior: smooth;
 
@@ -407,16 +406,6 @@ body {
 
   >.ant-dropdown-menu {
     margin-right: -3px;
-  }
-}
-
-.note-modal {
-  .ant-modal-content {
-    padding: 0;
-  }
-
-  .ant-modal-footer {
-    padding: 0 20px 20px;
   }
 }
 

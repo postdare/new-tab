@@ -6,14 +6,9 @@ import {
   IconPencilMinus,
   IconFolderPlus,
   IconTrashX,
-  IconInfoCircle,
   IconFolder,
   IconSettings,
-  IconNotes,
-  IconLink,
   IconArrowsMove,
-  IconDatabaseExport,
-  IconBrandHipchat,
 } from "@tabler/icons-react";
 import { getID } from "~/utils";
 import useStores from "~/hooks/useStores";
@@ -126,8 +121,7 @@ const NavLi = styled.li`
 `;
 
 const Nav = (props) => {
-  const { link, tools, option, note } = useStores();
-  const { noteTab = [], hasNoteTrash } = option.item;
+  const { link, tools } = useStores();
   const { token } = useToken();
   const navigate = useNavigate();
   const location = useLocation();
@@ -149,18 +143,8 @@ const Nav = (props) => {
     [link]
   );
 
-  const onNoteTitleClick = useMemoizedFn(
-    (key) => {
-      if (key != state.activeKey) {
-        state.activeKey = key;
-        note.updateActiveTabKey(key);
-      }
-    },
-    [note]
-  );
-
   const foo = useCreation(() => {
-    const links = link.linkNav.map((item, index) => {
+    const links = link.linkNav.map((item) => {
       return getItem({
         label: item.title,
         key: item.timeKey,
@@ -171,72 +155,43 @@ const Nav = (props) => {
       });
     });
 
-    const notes = noteTab.map((item, index) => {
-      return getItem({
-        label: item.title,
-        key: item.key,
-        icon: <IconNotes size={20} stroke={1} />,
-        type: "note",
-      });
-    });
-
-    const n = [
+    return [
       ...links,
-      {
-        type: "divider",
-      },
-      ...notes,
+      { type: "divider" },
+      getItem({
+        label: "首选项",
+        key: "preferences",
+        icon: <IconSettings size={20} stroke={1} />,
+      }),
     ];
-    if (hasNoteTrash) {
-      n.push(getItem({
-        label: "回收站",
-        key: "note_-1",
-        id: "-1",
-        type: "note",
-        icon: <IconNotes size={20} stroke={1} />,
-      }));
-    }
-    n.push({
-      type: "divider",
-    });
-    n.push(getItem({
-      label: "首选项",
-      key: "preferences",
-      icon: <IconSettings size={20} stroke={1} />,
-    }));
+  }, [link.linkNav]);
 
-    return n;
-  }, [link.linkNav, noteTab, hasNoteTrash]);
+  const isActive = useMemoizedFn(
+    (key, type) => {
+      if (type === "link" && location.pathname === "/") {
+        return state.activeKey == key;
+      }
+      return false;
+    },
+    [state.activeKey, location.pathname]
+  );
 
-  const isActive = useMemoizedFn((key, type) => {
-    if (type == "link" && location.pathname == '/') {
-      return state.activeKey == key
-    } else if (type == "note" && location.pathname == '/note') {
-      return state.activeKey == key
-    }
-    return false
-
-  }, [state.activeKey, location.pathname])
-
-
-  const onClick = useMemoizedFn((e) => {
-    if (e.type == 'link') {
-      navigate('/');
-      onLinkTitleClick(e.key);
-      saveLActiveCache(e);
-    } else if (e.key === "preferences") {
-      tools.preferencesOpen = true;
-    } else if (e.type === "note") {
-      navigate('/note');
-      onNoteTitleClick(e.key);
-      saveLActiveCache(e);
-    } else if (e.key === "Manual" || e.key === "About") {
-      tools.openPublicModal("About", {}, 440, "关于");
-    } else if (e.key === "export") {
-      tools.onExport();
-    }
-
-  }, [navigate, onLinkTitleClick, onNoteTitleClick, tools]);
+  const onClick = useMemoizedFn(
+    (e) => {
+      if (e.type === "link") {
+        navigate("/");
+        onLinkTitleClick(e.key);
+        saveLActiveCache(e);
+      } else if (e.key === "preferences") {
+        tools.preferencesOpen = true;
+      } else if (e.key === "Manual" || e.key === "About") {
+        tools.openPublicModal("About", {}, 440, "关于");
+      } else if (e.key === "export") {
+        tools.onExport();
+      }
+    },
+    [navigate, onLinkTitleClick, tools]
+  );
 
   const onContextMenu = useMemoizedFn((e, props) => {
     e.stopPropagation();
@@ -333,40 +288,8 @@ const Nav = (props) => {
               tools.messageApi.error('添加失败');
             });
           }
-        }
+        },
       });
-    } else if (props.type == "note") {
-      // menuArr.push({
-      //   label: "重命名",
-      //   key: "edit-link",
-      //   icon: <IconPencilMinus />,
-      //   onClick: () => {
-      //     console.log("[ title ] >", props);
-      //     tools.openPublicModal(
-      //       "EditLink",
-      //       {
-      //         title: props.label,
-      //         timeKey: props.key,
-      //         linkId: props.id,
-      //         type: 'note',
-      //         modalTitle: '重命名',
-      //         cb: () => {
-      //           link.updateNav();
-      //         }
-      //       },
-      //       400
-      //     );
-      //   },
-      // });
-      // menuArr.push({
-      //   label: "新建便签页",
-      //   key: "new-note",
-      //   icon: <IconFolderPlus />,
-      //   onClick: () => {
-      //     note.addNewTab();
-      //   }
-      // });
-
     }
 
     tools.setRightClickEvent(e, menuArr);
@@ -381,12 +304,13 @@ const Nav = (props) => {
   }, [link.linkNav]);
 
   React.useEffect(() => {
-    Storage.get('navActive').then((e) => {
-      if (e) {
+    Storage.get("navActive").then((e) => {
+      // 忽略已移除的便签导航缓存
+      if (e && e.type === "link" && e._key) {
         setTimeout(() => {
           onClick({
             type: e.type,
-            key: e._key
+            key: e._key,
           });
         }, 100);
       }

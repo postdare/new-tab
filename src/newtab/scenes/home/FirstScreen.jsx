@@ -4,12 +4,12 @@ import { observer } from "mobx-react";
 import { theme, Button, Tooltip, Badge } from "antd";
 import { useLocation } from "react-router-dom";
 import useStores from "~/hooks/useStores";
-import { IconCirclePlus, IconEditCircle } from "@tabler/icons-react";
+import { IconCirclePlus } from "@tabler/icons-react";
 import { motion, useAnimationControls } from "framer-motion";
 import { useUpdateEffect, useHover, useMemoizedFn, useCreation } from "ahooks";
-import HomeNote from "~/scenes/note/homeNote";
 import logoPng from "~/assets/logo.png";
 import HomeLinkList from "./HomeLinkList";
+import HomeBgLayer from "./HomeBgLayer";
 import HomeSearch from "~/components/HomeSearch";
 import Clock from "~/components/Clock";
 import _ from "lodash";
@@ -252,7 +252,7 @@ const getAutoImageFit = async (url) => {
 const FirstScreen = (props) => {
   const { handleUnlock, unlock, showTopIcon } = props;
 
-  const { home, tools, note, option, link } = useStores();
+  const { home, tools, option, link } = useStores();
   const { isSoBarDown, bgColor, bgType, showHomeClock, homeLinkMaxNum = 14, soHdCenter, bgImageFit = 'cover', bg2ImageFit = 'cover', homeGlassEffect, showHomeGroupTitle = true } = option.item;
 
   const effectiveKeys = option.getHomeLinkTimeKeys();
@@ -512,12 +512,19 @@ const FirstScreen = (props) => {
           </LogoIconWrap>
         </LogoWrap>
         <NavRight>
-          {location.pathname == '/' ? (
-            <Tooltip 
-              placement="bottom" 
-              title={pendingLinksCount > 0 ? `新增链接（${pendingLinksCount} 个待添加网址）` : "新增链接"}
+          {location.pathname === "/" ? (
+            <Tooltip
+              placement="bottom"
+              title={
+                pendingLinksCount > 0
+                  ? `新增链接（${pendingLinksCount} 个待添加网址）`
+                  : "新增链接"
+              }
             >
-              <Badge count={pendingLinksCount > 0 ? pendingLinksCount : 0} offset={[-2, 2]}>
+              <Badge
+                count={pendingLinksCount > 0 ? pendingLinksCount : 0}
+                offset={[-2, 2]}
+              >
                 <Button
                   type="text"
                   onClick={() => (tools.tabListDrawer = true)}
@@ -525,16 +532,7 @@ const FirstScreen = (props) => {
                 ></Button>
               </Badge>
             </Tooltip>
-          ) : location.pathname == '/note' ? (
-            <Tooltip placement="bottom" title={"新增便签"}>
-              <Button
-                type="text"
-                onClick={() => { note.open(0) }}
-                icon={<IconEditCircle size={22} stroke={1} />}
-              ></Button>
-            </Tooltip>
           ) : null}
-
         </NavRight>
       </HeaderWrap>
       {showHomeClock ? (
@@ -568,7 +566,7 @@ const FirstScreen = (props) => {
         glassMode={homeGlassEffect}
         showGroupTitle={showHomeGroupTitle}
       />
-      <HomeNote stickled={unlock} />
+      <HomeBgLayer stickled={unlock} />
     </>
   );
 };

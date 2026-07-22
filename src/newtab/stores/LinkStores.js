@@ -305,7 +305,6 @@ export default class LinkStore extends BaseStore {
         .count()
         .then((res) => {
           if (!res) {
-            this.rootStore.note._init();
             setTimeout(() => {
               const timeKey = getID();
               const timeKeyPanel = getID();

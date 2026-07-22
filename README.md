@@ -9,9 +9,8 @@ Based on [mumingfang/jvmaoTab](https://github.com/mumingfang/jvmaoTab) (MIT Lice
 ## Features
 
 - Minimal home screen: wallpaper + search
-- Link drawer (groups, drag & drop, home shortcuts)
+- Link drawer (groups, drag & drop, free-position home shortcuts)
 - Aggregated search / custom search engines
-- Notes & time capsules
 - Local-first storage; WebDAV / GitHub Gist sync
 - Bing wallpaper, custom wallpaper, dark mode
 

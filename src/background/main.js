@@ -1,4 +1,4 @@
-import { browserApi, getLastError } from "@/utils/browser";
+import { browserApi } from "@/utils/browser";
 import { handleSyncMessage } from "./sync";
 
 const cloudOptions = ['soList', 'activeSo', 'translateList', 'activeTranslate', 'linkSpan', 'copyClose', 'pwKey', 'defaultOpenAdd', 'soStyleIsRound', 'soAOpen', 'defauiltLink', 'isSoBarDown', 'linkOpenSelf', 'customkey', 'systemTheme', 'showHomeClock', 'homeLinkMaxNum', 'rollingBack', 'soHdCenter', 'tabTitle', 'webDavURL', 'webDavUsername', 'webDavPassword', 'webDavDir', 'homeImgOpacity', 'syncType', 'githubToken', 'githubGistId', 'showHomeGroupTitle'];
@@ -139,89 +139,23 @@ browserApi?.runtime?.onMessage.addListener(function (request, sender, sendRespon
   return true;
 });
 
-const setContextMenusData = (type, data, tab) => {
-  const _data = {
-    pageUrl: data.pageUrl,
-    title: tab.title,
-    type,
-    tabId: tab.id
-  }
-  if (type === 'text') {
-    _data.text = data.selectionText
-  } else {
-    _data.imgUrl = data.srcUrl;
-  }
-
-  browserApi?.storage?.local?.get(['contextMenusData'], function (res) {
-    let saveData = [];
-    if (res?.contextMenusData?.length > 0) {
-      saveData = [
-        ...res.contextMenusData,
-        _data,
-      ];
-    } else {
-      saveData = [_data]
-    }
-    browserApi?.storage?.local?.set({
-      'contextMenusData': saveData
-    });
-  });
-}
-
-// 在background script中创建右键菜单项
+// 右键菜单：收藏网址
 browserApi?.runtime?.onInstalled.addListener(function () {
-  // 创建一个右键菜单项，只在用户右键点击图片时显示
-  browserApi?.contextMenus?.create({
-    id: "imageMenu",
-    title: "将图片存储至便签",
-    contexts: ["image"], // 只在用户右键点击图片时显示这个菜单项
-  });
-
-  // 创建一个右键菜单项，只在用户选中文本时显示
-  browserApi?.contextMenus?.create({
-    id: "textMenu",
-    title: "将选中文本存储至便签",
-    contexts: ["selection"], // 只在用户选中文本时显示这个菜单项
-  });
-
-  // 创建一个右键菜单项，在网页上右键时显示
   browserApi?.contextMenus?.create({
     id: "bookmarkPageMenu",
     title: "收藏网址到抽屉",
-    contexts: ["page"], // 在网页上右键时显示
+    contexts: ["page"],
   });
 
-  // 创建一个右键菜单项，在扩展图标上右键时显示（Chrome MV3）
   browserApi?.contextMenus?.create({
     id: "bookmarkActionMenu",
     title: "收藏当前页面到抽屉",
-    contexts: ["action"], // 在扩展图标上右键时显示
+    contexts: ["action"],
   });
 });
 
-// 监听右键菜单项的点击事件
 browserApi?.contextMenus?.onClicked.addListener(function (info, tab) {
-  if (info.menuItemId === "imageMenu") {
-    // console.log("用户右键点击了图片，图片的URL是：", info);
-    setContextMenusData('image', info, tab);
-  } else if (info.menuItemId === "textMenu") {
-    // console.log("用户选中了文本，选中的文本是：", info, tab);
-    // setContextMenusData('text', info, tab);
-    browserApi?.tabs?.sendMessage(tab.id, {
-      type: "onTextMenuCS"
-    }, function (response) {
-      if (getLastError() || !response?.html) {
-        // 如果没有收到消息，默认走info
-        setContextMenusData('text', info, tab);
-      } else {
-        // 正常处理响应
-        setContextMenusData('text', {
-          ...info,
-          selectionText: response.html
-        }, tab);
-      }
-    });
-  } else if (info.menuItemId === "bookmarkPageMenu" || info.menuItemId === "bookmarkActionMenu") {
+  if (info.menuItemId === "bookmarkPageMenu" || info.menuItemId === "bookmarkActionMenu") {
     // 处理收藏网址到抽屉
     const savePendingLink = (url, title) => {
       // 先尝试发送消息到 newtab 页面

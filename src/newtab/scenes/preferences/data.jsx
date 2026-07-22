@@ -37,7 +37,7 @@ const Info = styled.div`
 `;
 
 const PreferencesData = () => {
-    const { option, tools, link, note, data } = useStores();
+    const { option, tools, link, data } = useStores();
     // const _option = _.cloneDeep(option.item);
     const [spinning, setSpinning] = React.useState(false);
 
@@ -119,7 +119,6 @@ const PreferencesData = () => {
                                         setTimeout(() => {
                                             setSpinning(false);
                                             link.restart();
-                                            note.init();
 
                                             if (db.verno !== databaseVersion) {
                                                 db.__upgrade(db);

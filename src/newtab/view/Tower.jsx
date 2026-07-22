@@ -33,9 +33,7 @@ const Wrap = createGlobalStyle`
   --homeNavBg: ${(props) => props.color.homeNavBg};
   --homeNavBorderColor: ${(props) => props.color.homeNavBorderColor};
   --linkitemGhostBg: ${(props) => props.color.linkitemGhostBg};
-  --notebrColor: ${(props) => props.color.notebrColor};
-  --notebrBoxShadow: ${(props) => props.color.notebrBoxShadow};
-  --notebrHomeHeaderBg: ${(props) => props.color.notebrHomeHeaderBg};
+
   background-color: var(--bgColor);
   }
 `;
@@ -53,7 +51,7 @@ const RightClick = React.lazy(() => import("~/components/RightClick"));
 const Preferences = React.lazy(() => import("~/scenes/preferences"));
 // const FloatButton = React.lazy(() => import("~/components/FloatButton"));
 const Tower = ({ children }) => {
-  const { link, tools, note, option, data } = useStores();
+  const { link, tools, option, data } = useStores();
   const [messageApi, contextHolder] = message.useMessage();
   const { systemTheme, tabTitle, homeImgOpacity = 0.2 } = option.item;
   const { token } = useToken();
@@ -93,9 +91,6 @@ const Tower = ({ children }) => {
       t.searcBoxShadow = "0 2px 8px rgba(0, 0, 0, 0.1)"
       t.homeImgOpacity = homeImgOpacity || "0.2"
       t.linkitemGhostBg = "#515151";
-      t.notebrColor = "rgba(222, 222, 222, 0.12)";
-      t.notebrBoxShadow = "rgb(20, 20, 20)";
-      t.notebrHomeHeaderBg = "#181818";
       t.homeLogoOpacity = "0.75";
       t.homeNavBg = 'rgba(0, 0, 0, 0.18)';
       t.homeNavBorderColor = 'rgba(0, 0, 0, 0.2)';
@@ -109,9 +104,6 @@ const Tower = ({ children }) => {
       t.searcBoxShadow = "0 2px 8px rgba(0, 0, 0, 0.15)"
       t.homeImgOpacity = "1"
       t.linkitemGhostBg = "rgb(230, 233, 236)";
-      t.notebrColor = "rgb(238, 238, 238)";
-      t.notebrBoxShadow = "rgb(233, 233, 233)";
-      t.notebrHomeHeaderBg = "#f5f5f5";
       t.homeLogoOpacity = "1";
       t.homeNavBg = 'rgba(255, 255, 255, 0.18)';
       t.homeNavBorderColor = 'rgba(255, 255, 255, 0.2)';
@@ -122,7 +114,6 @@ const Tower = ({ children }) => {
   const restart = useCallback(_.debounce(() => {
     tools.updateTimeKey();
     link.restart();
-    note.init();
   }, 300), []);
 
   React.useEffect(() => {
@@ -189,7 +180,6 @@ const Tower = ({ children }) => {
   React.useEffect(() => {
     tools.messageApi = messageApi;
     link.restart();
-    note.init();
     v.isInit = true;
     document.addEventListener('contextmenu', function (e) {
       if (!e.target.classList.contains("search-input")) {

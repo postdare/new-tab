@@ -292,7 +292,7 @@ export default class DataStores {
     }
     webdavVersion = versionNum;
 
-    const { option, link, note, tools } = this.rootStore;
+    const { option, link, tools } = this.rootStore;
 
     let backupBlob = null;
     try {
@@ -347,8 +347,10 @@ export default class DataStores {
         if (tableKeys.length === 0) {
           throw new Error('远端数据表为空，拒绝导入以避免数据丢失');
         }
-        const requiredTables = ['option', 'link', 'note'];
-        const hasRequiredTable = requiredTables.some(table => tableKeys.includes(table));
+        const requiredTables = ['option', 'link'];
+        const hasRequiredTable = requiredTables.some((table) =>
+          tableKeys.includes(table)
+        );
         if (!hasRequiredTable) {
           console.warn('远端数据缺少基本表，但继续导入');
         }
@@ -410,7 +412,6 @@ export default class DataStores {
       }
 
       link.restart();
-      note.init();
 
       if (db.verno !== databaseVersion) {
         db.__upgrade(db);

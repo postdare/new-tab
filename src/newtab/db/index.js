@@ -62,16 +62,29 @@ db.version(3).stores({
   });
 });
 
+// 版本 4：移除便签功能，删除 note 表
+db.version(4).stores({
+  link: "++linkId,title,url,&timeKey,sort,parentId,hide",
+  option: "++id,&key,value",
+  note: null,
+  cache: "++id,&key,value",
+  favicon: "&domain,iconUrl,iconUrlDark,size,lastUpdate",
+});
 
-// 更新旧数据
+// 更新旧数据（1.5 升级路径）
 db.__upgrade = (t) => {
-  const oldNoteTable = t.table("note");
-  oldNoteTable.toCollection().modify((note) => {
-    if (typeof note.state === "undefined") {
-      note.state = 1;
+  try {
+    const oldNoteTable = t.table("note");
+    if (oldNoteTable) {
+      oldNoteTable.toCollection().modify((note) => {
+        if (typeof note.state === "undefined") {
+          note.state = 1;
+        }
+      });
     }
-  });
-  // favicon 为新表，无需迁移旧数据，确保升级过程不抛异常即可。
+  } catch (_) {
+    // note 表已删除时忽略
+  }
   return true;
 };
 

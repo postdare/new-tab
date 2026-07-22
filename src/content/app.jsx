@@ -1,6 +1,5 @@
 import React from "react";
 import So from "./so";
-import Note from "./note";
 import SpecialSearch from "./specialSearch";
 import { detectFaviconForCurrentPage } from "./faviconDetector";
 
@@ -44,23 +43,6 @@ const App = () => {
     const messageListener = function (request, sender, sendResponse) {
       try {
         switch (request.type) {
-          case "onTextMenuCS": {
-            const selection = window.getSelection();
-            if (selection && selection.rangeCount > 0) {
-              try {
-                const range = selection.getRangeAt(0);
-                const container = document.createElement("div");
-                container.appendChild(range.cloneContents());
-                sendResponse({ html: container.innerHTML }); // 这是HTML字符串
-              } catch (error) {
-                console.error("Error processing selection:", error);
-                sendResponse({ html: "" });
-              }
-            } else {
-              sendResponse({ html: "" });
-            }
-            break;
-          }
           case "DETECT_FAVICON_FOR_CURRENT_PAGE": {
             // 仅检测并返回 favicon，不直接写入 IndexedDB
             detectFaviconForCurrentPage()
@@ -103,7 +85,6 @@ const App = () => {
 
   return (
     <>
-      <Note />
       <So />
       <SpecialSearch />
     </>

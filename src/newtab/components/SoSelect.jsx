@@ -38,7 +38,7 @@ const Wrap = styled.div`
     padding: 10px 14px;
     border-radius: 8px;
     background-color: var(--fff);
-    border: 1px solid var(--notebrColor);
+    border: 1px solid var(--borderColor);
     cursor: pointer;
     box-sizing: border-box;
     display: flex;
@@ -48,7 +48,7 @@ const Wrap = styled.div`
         display: flex;
         justify-content: center;
         align-items: center;
-        border: 1px solid var(--notebrColor);
+        border: 1px solid var(--borderColor);
     }
 `;
 
@@ -58,7 +58,7 @@ const Item = styled.div`
     align-items: center;
     gap: 8px;
     border-radius: 8px;
-    border: 1px solid var(--notebrColor);
+    border: 1px solid var(--borderColor);
     margin: 5px auto;
     padding: 8px 12px;
     cursor: pointer;
