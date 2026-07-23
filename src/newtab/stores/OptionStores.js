@@ -12,8 +12,31 @@ import _ from "lodash";
 import {
   getID
 } from "~/utils";
+import { SYNC_CONFIG_KEYS } from "./syncConfig";
+import {
+  loadSyncConfig,
+  saveSyncConfigValue,
+  migrateSyncConfigFromDb,
+  clearSyncConfig,
+} from "./syncConfigStorage";
+import { browserApi, getLastError } from "@/utils/browser";
 
 const localStorageKeys = ['bgType', 'bg2Type', 'bgBase64', 'bg2Base64', 'webdavVersion'];
+
+/** runtime.sendMessage 的 Promise 封装（忽略无监听方等瞬时错误） */
+function sendRuntimeMessage(type, data) {
+  return new Promise((resolve) => {
+    if (!browserApi?.runtime?.sendMessage) {
+      resolve(undefined);
+      return;
+    }
+    browserApi.runtime.sendMessage({ type, data }, (response) => {
+      // 读取 lastError 避免 Unchecked runtime.lastError 噪音
+      void getLastError();
+      resolve(response);
+    });
+  });
+}
 
 const v = 19;
 const updateOptions = {
@@ -105,7 +128,7 @@ const updateOptions = {
     showHomeGroupTitle: true,
   },
   19: {
-    // 首屏分组自由布局坐标：{ [timeKey]: { left, top } }
+    // 首屏分组相对布局锚点的坐标：{ [timeKey]: { left, top } }
     homeLinkPositions: {},
   },
 }
@@ -139,6 +162,13 @@ export default class OptionStores {
     if (!db.isOpen()) {
       await db.open();
     }
+    try {
+      // 同步凭据存于 chrome.storage.local：先迁移历史数据并清理 db 残留，再载入内存
+      await migrateSyncConfigFromDb(db);
+      Object.assign(this.item, await loadSyncConfig());
+    } catch (error) {
+      console.error('同步配置加载失败:', error);
+    }
     setTimeout(() => {
       db.option
         .toArray()
@@ -148,10 +178,11 @@ export default class OptionStores {
             // 检查 Chrome Storage Sync 是否有 WebDAV 配置，尝试恢复数据
             try {
               const syncData = await new Promise((resolve, reject) => {
-                if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
-                  chrome.storage.sync.get(['webDavURL', 'webDavUsername', 'webDavPassword', 'webDavDir', 'syncType', 'githubToken', 'githubGistId'], (result) => {
-                    if (chrome.runtime.lastError) {
-                      reject(chrome.runtime.lastError);
+                if (browserApi?.storage?.sync) {
+                  browserApi.storage.sync.get(['webDavURL', 'webDavUsername', 'webDavPassword', 'webDavDir', 'syncType', 'githubToken', 'githubGistId'], (result) => {
+                    const err = getLastError();
+                    if (err) {
+                      reject(err);
                     } else {
                       resolve(result);
                     }
@@ -246,38 +277,13 @@ export default class OptionStores {
 
           this.isInit = true;
 
-          chrome.runtime.sendMessage({
-            type: "getOption",
-          }, (response) => {
-            for (const key in response) {
-              const v = response[key];
-              if (typeof this.item[key] !== 'undefined') {
-                let equation = true;
-                switch (true) {
-                  case _.isArray(v):
-                    equation = _.isEqual(this.item[key], v);
-                    break;
-                  case _.isObject(v):
-                    equation = _.isEqual(this.item[key], v);
-                    break;
-                  default:
-                    equation = this.item[key] === v;
-                    break;
-                }
-
-                if (!equation) {
-                  this.setItem(key, v, false);
-                }
-              }
-            }
-
-            if (this.item["v"] !== v) {
-              this.update(this.item["v"] || 0);
-            }
-            this.rootStore.data.init();
-
-          });
-
+          // 注意：不再用 chrome.storage.sync 的值反向覆盖本地 db——
+          // 它仅作为「本地无数据时」的一次性恢复源（见上方 res.length === 0 分支），
+          // 常规启动以本地数据为唯一事实源，避免云端脏数据清空本地配置。
+          if (this.item["v"] !== v) {
+            this.update(this.item["v"] || 0);
+          }
+          this.rootStore.data.init();
         })
         .catch((err) => {
           if (err.name === "DatabaseClosedError") {
@@ -311,9 +317,7 @@ export default class OptionStores {
     try {
       const defaultOption = this.getNewOptionToValue(_v, this.item);
 
-      chrome.runtime.sendMessage({
-        type: "getOption",
-      }, (response) => {
+      sendRuntimeMessage("getOption").then((response) => {
 
         for (const key in response) {
           const v = response[key];
@@ -325,8 +329,6 @@ export default class OptionStores {
         if (typeof home_id !== 'undefined') {
           defaultOption["homeId"] = home_id
         }
-
-        console.log('%c [ defaultOption ]-181', 'font-size:13px; background:pink; color:#bf2c9f;', defaultOption)
 
         Object.keys(defaultOption).forEach((key) => {
 
@@ -386,101 +388,52 @@ export default class OptionStores {
   }
 
   // 基于本地数据库强制更新线上选项
-  resetChromeSaveOption() {
-    return new Promise((resolve, reject) => {
-      const data = {};
-      db.option
-        .toArray()
-        .then((res) => {
-          console.log('%c [ res ]-241', 'font-size:13px; background:pink; color:#bf2c9f;', res)
-          if (res.length === 0) {
-            return;
-          }
-          res.forEach((item) => {
-            this.item[item.key] = item.value;
-            data[item.key] = item.value;
-
-          });
-          console.log('%c [ data ]-248', 'font-size:13px; background:pink; color:#bf2c9f;', data)
-          chrome.runtime.sendMessage({
-            type: "setOptions",
-            data,
-          }, function (response) {
-            resolve();
-          });
-        })
-        .catch((err) => {
-          reject(err);
-          console.error(err);
-        });
-    })
-
+  async resetChromeSaveOption() {
+    const res = await db.option.toArray();
+    if (res.length === 0) {
+      return;
+    }
+    const data = {};
+    res.forEach((item) => {
+      this.item[item.key] = item.value;
+      data[item.key] = item.value;
+    });
+    await sendRuntimeMessage("setOptions", data);
   }
 
-  setItem(key, value, save = true) {
-    console.log('%c [ value ]-225', 'font-size:13px; background:pink; color:#bf2c9f;', key, value)
+  async setItem(key, value, save = true) {
     this.item[key] = value;
-    return this.setOption(key, value).then(() => {
-      if (save) {
-        chrome.runtime.sendMessage({
-          type: "setOptions",
-          data: {
-            [key]: value
-          }
-        }, function (response) {
+    await this.setOption(key, value);
+    if (save) {
+      sendRuntimeMessage("setOptions", { [key]: value });
+    }
+  }
 
-        });
+  async getOption(key, returnAll = false) {
+    const res = await db.option.where("key").anyOf([key]).toArray();
+    if (res.length === 0) {
+      return null;
+    }
+    return returnAll ? res[0] : res[0]["value"];
+  }
+
+  async setOption(key, value) {
+    // 同步凭据/版本号走 chrome.storage.local，不进 db（不随数据导出，也不触发同步推送）
+    if (SYNC_CONFIG_KEYS.includes(key)) {
+      await saveSyncConfigValue(key, value);
+      return;
+    }
+
+    const res = await this.getOption(key, true);
+    if (res?.id) {
+      await db.option.update(res.id, { value });
+      if (!localStorageKeys.includes(key)) {
+        this.rootStore.data.update();
       }
-
-    })
-  }
-
-  getOption(key, returnAll = false) {
-    return new Promise((resolve, reject) => {
-      db.option
-        .where("key")
-        .anyOf([key])
-        .toArray()
-        .then((res) => {
-          if (res.length > 0) {
-            if (returnAll) {
-              resolve(res[0]);
-            } else {
-              resolve(res[0]["value"]);
-            }
-          } else {
-            resolve(null);
-          }
-        })
-        .catch((err) => {
-          reject(err);
-        });
-    });
-  }
-
-  setOption(key, value) {
-    return new Promise((resolve, reject) => {
-      this.getOption(key, true).then((res) => {
-        if (res?.id) {
-          db.option.update(res.id, {
-            value
-          }).then(() => {
-            if (!localStorageKeys.includes(key)) {
-              this.rootStore.data.update();
-            }
-            resolve();
-          }).catch(reject);
-        } else {
-          db.option.add({
-            key,
-            value
-          }).then(() => {
-            this.rootStore.data.update();
-            resolve();
-          }).catch(reject);
-        }
-      });
-    });
+    } else {
+      await db.option.add({ key, value });
+      this.rootStore.data.update();
+    }
   }
 
   resetOption() {
@@ -489,6 +442,7 @@ export default class OptionStores {
         this.item = {
           homeId,
         };
+        clearSyncConfig().catch((err) => console.error('清空同步配置失败:', err));
         db.option.clear().then(() => {
           this.update(0, homeId);
           setTimeout(() => {

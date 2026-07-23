@@ -1,12 +1,10 @@
 import React from "react";
 import { observer } from "mobx-react";
 import styled from "styled-components";
-import { Form, Button, Input, Modal, Divider, Select, Tag } from "antd";
-import { ExclamationCircleFilled } from "@ant-design/icons";
+import { App as AntApp, Form, Button, Input, Modal, Divider, Select, Tag } from "antd";
 import useStores from "~/hooks/useStores";
+import ConfirmDialogIcon from "~/components/ConfirmDialogIcon";
 import _ from "lodash";
-
-const { confirm } = Modal;
 
 const Space = styled.div`
     display: flex;
@@ -43,6 +41,7 @@ const GistIdText = styled.div`
 
 const GitHubGist = () => {
     const { option, data, tools } = useStores();
+    const { modal } = AntApp.useApp();
     const _option = _.cloneDeep(option.item);
     const [loading, setLoading] = React.useState(false);
     const [open, setOpen] = React.useState(false);
@@ -75,9 +74,9 @@ const GitHubGist = () => {
             );
 
             if (status === 1) {
-                confirm({
+                modal.confirm({
                     title: "监测到远端有数据，即将删除本地所有数据",
-                    icon: <ExclamationCircleFilled />,
+                    icon: <ConfirmDialogIcon />,
                     content: (
                         <div>
                             <p>点击确认将删除当前所有数据并拉取远端数据，建议先导出本地数据</p>
@@ -98,6 +97,7 @@ const GitHubGist = () => {
                 });
             } else {
                 await saveConfig(token, gistId);
+                await data.seedGithubGist(token, gistId);
                 // 自动创建的 gistId 回填到表单
                 if (gistId && !values.githubGistId) {
                     form.setFieldValue('githubGistId', gistId);

@@ -1,14 +1,6 @@
 import Dexie from "dexie";
-import {
-  importDB,
-  exportDB,
-  importInto,
-  peakImportFile,
-} from "dexie-export-import";
-import {
-  calculateDatabaseSize,
-  formatSizeUnits
-} from "~/utils";
+// 副作用导入：为 db 实例注册 export/import 能力
+import "dexie-export-import";
 
 export const DB_NAME = "new-tab";
 
@@ -88,16 +80,6 @@ db.__upgrade = (t) => {
   return true;
 };
 
-// calculateDatabaseSize(db).then(size => {
-//   console.log(`数据库大小大约为：${formatSizeUnits(size)}`);
-// });
-
-export const dbExport = () => {
-  return db.export({
-    prettyJson: true
-  });
-};
-
 // favicon 工具函数
 export const getFavicon = async (domain) => {
   if (!domain) return Promise.resolve(undefined);
@@ -146,48 +128,3 @@ export const saveFavicon = async ({ domain, iconUrl, iconUrlDark = null, size })
     throw e;
   }
 };
-
-
-const find = (dbName, id) => {
-  return new Promise((resolve, reject) => {
-    db[dbName]
-      .get(id)
-      .then((res) => {
-        resolve(res);
-      })
-      .catch((err) => {
-        reject(err);
-      });
-  });
-}
-
-const add = (dbName, data, pickData = []) => {
-  return new Promise((resolve, reject) => {
-    if (Array.isArray(data)) {
-      const addList = pickData?.length ? data.map((v) => _.pick(v, field)) : data;
-      db[dbName]
-        .bulkPut(addList)
-        .then((res) => {
-          resolve(res);
-        })
-        .catch((err) => {
-          reject(err);
-        });
-    } else {
-      const add = pickData?.length ? _.pick(link, field) : data;
-      db[dbName]
-        .put(add)
-        .then((res) => {
-          resolve(res);
-        })
-        .catch((err) => {
-          reject(err);
-        });
-    }
-  });
-}
-
-const update = (dbName, id, data, pickData = []) => {
-  const value = pickData?.length ? data.map((v) => _.pick(v, field)) : data;
-  return db[dbName].update(id, value);
-}

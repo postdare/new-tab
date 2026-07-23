@@ -1,17 +1,15 @@
 import React from "react";
 import { observer } from "mobx-react";
 import styled from "styled-components";
-import { Form, Upload, Divider, Button, Spin, Modal, Input } from "antd";
+import { App as AntApp, Form, Upload, Divider, Button, Spin, Input } from "antd";
 import "dexie-export-import";
 import { db, DB_NAME } from "~/db";
+import { stripSyncConfigRows } from "~/stores/syncConfig";
 import { IconFileArrowLeft } from "@tabler/icons-react";
-import { ExclamationCircleFilled } from "@ant-design/icons";
+import ConfirmDialogIcon from "~/components/ConfirmDialogIcon";
 import _ from "lodash";
 
 import useStores from "~/hooks/useStores";
-
-const { confirm } = Modal;
-
 
 const UploadWrap = styled(Upload)`
     .ant-upload {
@@ -38,6 +36,7 @@ const Info = styled.div`
 
 const PreferencesData = () => {
     const { option, tools, link, data } = useStores();
+    const { modal } = AntApp.useApp();
     // const _option = _.cloneDeep(option.item);
     const [spinning, setSpinning] = React.useState(false);
 
@@ -66,9 +65,9 @@ const PreferencesData = () => {
             return;
         }
         if (info.file.status === 'done') {
-            confirm({
+            modal.confirm({
                 title: "即将删除所有数据",
-                icon: <ExclamationCircleFilled />,
+                icon: <ConfirmDialogIcon />,
                 content: "点击确认将删除当前所有数据并导入新数据",
                 okText: "确认",
                 okType: "danger",
@@ -108,6 +107,8 @@ const PreferencesData = () => {
                                 }
 
                                 await db.import(blob, { noTransaction: false, clearTables: true, acceptVersionDiff: true, progressCallback });
+                                // 旧导出文件可能带有同步凭据行，导入后剔除
+                                await stripSyncConfigRows(db);
 
                                 setTimeout(() => {
                                     data.deleteServeData();

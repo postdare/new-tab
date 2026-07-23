@@ -408,77 +408,67 @@ export default class HomeStores {
    * 获取 Bing 壁纸
    * 渐进式加载：优先使用本地缓存，先显示缩略图，再显示大图
    */
-  getBingBg() {
-    return new Promise(async (resolve, reject) => {
-      try {
-        // 1. 先尝试读取本地 Blob 缓存
-        const [srcBlob, thumbBlob] = await Promise.all([
-          Storage.getBlob('bingWallpaper').catch(() => null),
-          Storage.getBlob('bingWallpaperThumb').catch(() => null)
-        ]);
+  async getBingBg() {
+    // 1. 先尝试读取本地 Blob 缓存
+    const [srcBlob, thumbBlob] = await Promise.all([
+      Storage.getBlob('bingWallpaper').catch(() => null),
+      Storage.getBlob('bingWallpaperThumb').catch(() => null)
+    ]);
 
-        // 有本地缓存
-        if (srcBlob || thumbBlob) {
-          // 先用缩略图（如果有），再用大图
-          const thumbnailUrl = thumbBlob ? URL.createObjectURL(thumbBlob) : null;
-          const srcUrl = srcBlob ? URL.createObjectURL(srcBlob) : thumbnailUrl;
-          
-          this.isLoadingWallpaper = false;
-          
-          // 检查是否需要更新（每天更新一次）
-          const metadata = await Storage.get('bingImg').catch(() => null);
-          const cache = this.convertOldCacheToNew(metadata);
-          const isToday = cache?.time && dayjs(cache.time).isSame(dayjs(), 'day');
-          
-          if (!isToday) {
-            // 后台更新新壁纸（会自动渐进式加载）
-            this.isLoadingWallpaper = true;
-            this.loadNewBingWallpaper().catch(err => {
-              console.error('后台更新 Bing 壁纸失败：', err);
-              this.isLoadingWallpaper = false;
-            });
-          }
-          
-          resolve({ srcUrl, thumbnailUrl: thumbnailUrl || srcUrl });
-              return;
-            }
-            
-        // 2. 没有本地 Blob，检查是否有元数据（使用远程 URL）
-        const metadata = await Storage.get('bingImg').catch(() => null);
-        const cache = this.convertOldCacheToNew(metadata);
-        
-        if (cache?.urlbase) {
-          const urls = this.createUrlFromMetadata(cache);
-          if (urls) {
-            // 先返回远程缩略图 URL（更快加载）
-            this.isLoadingWallpaper = true;
-            // 注意：先用缩略图显示，大图由 downloadAndStoreBingBlob 加载后自动替换
-            resolve({ srcUrl: urls.thumbnailUrl, thumbnailUrl: urls.thumbnailUrl });
-            
-            // 后台渐进式下载（先缩略图后大图）
-            this.downloadAndStoreBingBlob(cache.urlbase).catch(err => {
-              console.error('后台下载 Bing 壁纸失败：', err);
-              this.isLoadingWallpaper = false;
-            });
-            return;
-          }
-        }
-        
-        // 3. 完全没有缓存，首次加载
-        this.isFirstLoad = true;
+    // 有本地缓存
+    if (srcBlob || thumbBlob) {
+      // 先用缩略图（如果有），再用大图
+      const thumbnailUrl = thumbBlob ? URL.createObjectURL(thumbBlob) : null;
+      const srcUrl = srcBlob ? URL.createObjectURL(srcBlob) : thumbnailUrl;
+
+      this.isLoadingWallpaper = false;
+
+      // 检查是否需要更新（每天更新一次）
+      const metadata = await Storage.get('bingImg').catch(() => null);
+      const cache = this.convertOldCacheToNew(metadata);
+      const isToday = cache?.time && dayjs(cache.time).isSame(dayjs(), 'day');
+
+      if (!isToday) {
+        // 后台更新新壁纸（会自动渐进式加载）
         this.isLoadingWallpaper = true;
-        
-        let hideLoading = null;
-        if (this.rootStore?.tools?.messageApi) {
-          hideLoading = this.rootStore.tools.messageApi.loading('当前正在初始化壁纸，请稍后', 0);
-        }
-        
-        const result = await this.loadNewBingWallpaper(hideLoading);
-        resolve(result);
-      } catch (err) {
-        reject(err);
+        this.loadNewBingWallpaper().catch(err => {
+          console.error('后台更新 Bing 壁纸失败：', err);
+          this.isLoadingWallpaper = false;
+        });
       }
-    });
+
+      return { srcUrl, thumbnailUrl: thumbnailUrl || srcUrl };
+    }
+
+    // 2. 没有本地 Blob，检查是否有元数据（使用远程 URL）
+    const metadata = await Storage.get('bingImg').catch(() => null);
+    const cache = this.convertOldCacheToNew(metadata);
+
+    if (cache?.urlbase) {
+      const urls = this.createUrlFromMetadata(cache);
+      if (urls) {
+        // 先返回远程缩略图 URL（更快加载）
+        this.isLoadingWallpaper = true;
+
+        // 后台渐进式下载（先缩略图后大图），大图完成后自动替换显示
+        this.downloadAndStoreBingBlob(cache.urlbase).catch(err => {
+          console.error('后台下载 Bing 壁纸失败：', err);
+          this.isLoadingWallpaper = false;
+        });
+        return { srcUrl: urls.thumbnailUrl, thumbnailUrl: urls.thumbnailUrl };
+      }
+    }
+
+    // 3. 完全没有缓存，首次加载
+    this.isFirstLoad = true;
+    this.isLoadingWallpaper = true;
+
+    let hideLoading = null;
+    if (this.rootStore?.tools?.messageApi) {
+      hideLoading = this.rootStore.tools.messageApi.loading('当前正在初始化壁纸，请稍后', 0);
+    }
+
+    return this.loadNewBingWallpaper(hideLoading);
   }
 
   /**

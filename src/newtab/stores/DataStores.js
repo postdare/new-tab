@@ -3,37 +3,36 @@ import {
   action,
   makeObservable,
 } from "mobx";
-import { db, DB_NAME } from "~/db";
+import { db } from "~/db";
 import { handleError } from "~/utils/errorHandler";
 import _ from "lodash";
 import BackgroundSyncProvider from "./providers/BackgroundSyncProvider";
-
-const SYNC_JSON_NAME = '/newtab-data.json';
-const SYNC_VERSION_NAME = '/newtab-version.txt';
-const SYNC_INIT_NAME = '/newtab-init.txt';
-const SYNC_README_NAME = 'newtab-readme.txt';
-const SYNC_VERSION_BASENAME = 'newtab-version.txt';
-
-/** 本地锁心跳间隔：需小于 background LOCK_TTL_MS（60s） */
-const LOCK_HEARTBEAT_MS = 20 * 1000;
-
-const localStorageKeys = ['bgType', 'bg2Type', 'bgBase64', 'bg2Base64', 'webdavVersion', 'githubToken', 'githubGistId'];
-
-const progressCallback = () => {}
+import {
+  SYNC_JSON_NAME,
+  SYNC_VERSION_NAME,
+  SYNC_INIT_NAME,
+  LOCK_HEARTBEAT_MS,
+  PUSH_BUSY_RETRY_BASE_MS,
+  PUSH_BUSY_RETRY_MAX_MS,
+  GIST_SEED_BUSY_RETRY_LIMIT,
+  PULL_MIN_INTERVAL_MS,
+  PUSH_STALE_CHECK_MS,
+  LOCAL_RESTORE_KEYS,
+  isEphemeralExtensionMessageError,
+} from "./sync/constants";
+import PushQueue from "./sync/PushQueue";
+import {
+  exportSnapshot,
+  parseSnapshot,
+  importSnapshot,
+  restoreBackup,
+} from "./sync/snapshot";
+import { testGithubGist } from "./sync/gistApi";
 
 /**
- * 扩展消息通道瞬时错误（MV3 SW 休眠、页面刷新等），不应弹 tips 打扰用户
+ * 同步门面：负责 provider 构造、跨标签锁、拉取/推送编排。
+ * 队列与重试见 sync/PushQueue，数据快照的导出/导入/回滚见 sync/snapshot。
  */
-function isEphemeralExtensionMessageError(error) {
-  const msg = error?.message || String(error || '');
-  return (
-    /message channel closed/i.test(msg) ||
-    /asynchronous response by returning true/i.test(msg) ||
-    /Extension context invalidated/i.test(msg) ||
-    /The message port closed/i.test(msg)
-  );
-}
-
 export default class DataStores {
   provider = null;
   dir = '';
@@ -41,6 +40,8 @@ export default class DataStores {
   waitType = '';
   cache = {};
   _heartbeatTimer = null;
+  _lastPullAt = 0;
+  _visibilityHandler = null;
 
   constructor(rootStore) {
     makeObservable(this, {
@@ -55,6 +56,11 @@ export default class DataStores {
       update: action,
     });
     this.rootStore = rootStore;
+    this._pushQueue = new PushQueue({
+      push: () => this.push(),
+      isLocked: () => this.lock,
+      hasProvider: () => !!this.provider,
+    });
   }
 
   /** 同步失败提示：通道类误报只打日志，其它仍 toast */
@@ -101,6 +107,48 @@ export default class DataStores {
   }
 
   /**
+   * 保存 GitHub Gist 配置后立即完成首轮远端写入。
+   * 不再依赖页面刷新后的隐式 init，确保“设置成功”代表数据已经落到 Gist。
+   */
+  seedGithubGist = async (token, gistId) => {
+    const githubToken = String(token || '').trim();
+    const githubGistId = String(gistId || '').trim();
+    if (!githubToken || !githubGistId) {
+      throw new Error('GitHub Token 或 Gist ID 为空');
+    }
+
+    const seedProvider = new BackgroundSyncProvider({
+      syncType: 'github_gist',
+      githubToken,
+      githubGistId,
+    });
+
+    for (let attempt = 0; attempt <= GIST_SEED_BUSY_RETRY_LIMIT; attempt += 1) {
+      try {
+        await seedProvider.acquireLock('push');
+      } catch (error) {
+        if (error?.message !== 'SYNC_BUSY') throw error;
+        if (attempt === GIST_SEED_BUSY_RETRY_LIMIT) {
+          throw new Error('其它 NewTab 页面正在同步，请稍后重试');
+        }
+        const delayMs = Math.min(
+          PUSH_BUSY_RETRY_MAX_MS,
+          PUSH_BUSY_RETRY_BASE_MS * Math.pow(2, attempt)
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+
+      try {
+        await this._pushBody(seedProvider, '');
+        return;
+      } finally {
+        await seedProvider.releaseLock();
+      }
+    }
+  }
+
+  /**
    * 获取跨 tab 同步锁 + 本地 lock。
    * @returns {Promise<'ok'|'busy'|'error'>}
    */
@@ -138,7 +186,7 @@ export default class DataStores {
   }
 
   // WebDAV 连接测试（供 webDAV.jsx 调用）
-  test = (url, username, password, dir) => {
+  test = async (url, username, password, dir) => {
     this.provider = new BackgroundSyncProvider({
       syncType: 'webdav',
       webDavURL: url,
@@ -149,54 +197,26 @@ export default class DataStores {
 
     const blob = new Blob(['1'], { type: 'text/plain' });
 
-    return new Promise((resolve, reject) => {
-      this.writeFile(dir + SYNC_INIT_NAME, blob).then(() => {
-        this.provider.deleteFile(dir + SYNC_INIT_NAME);
-        this.readFile(dir + SYNC_VERSION_NAME).then((data) => {
-          resolve(data ? 1 : 0);
-        }).catch(() => resolve(0));
-      }).catch((error) => {
-        handleError(error, "DataStores.test");
-        this.provider = null;
-        reject(error);
-      });
-    });
+    try {
+      await this.writeFile(dir + SYNC_INIT_NAME, blob);
+    } catch (error) {
+      handleError(error, "DataStores.test");
+      this.provider = null;
+      throw error;
+    }
+
+    this.provider.deleteFile(dir + SYNC_INIT_NAME);
+    try {
+      const data = await this.readFile(dir + SYNC_VERSION_NAME);
+      return data ? 1 : 0;
+    } catch (_) {
+      return 0;
+    }
   }
 
   // GitHub Gist 连接测试（供 githubGist.jsx 调用）
-  // 返回 { status: 0|1, gistId: string }
-  testGithubGist = async (token, gistId) => {
-    const headers = {
-      Authorization: `token ${token}`,
-      Accept: 'application/vnd.github.v3+json',
-      'Content-Type': 'application/json',
-    };
-
-    if (gistId) {
-      const res = await fetch(`https://api.github.com/gists/${gistId}`, { headers });
-      if (!res.ok) throw new Error(`验证 Gist 失败: ${res.status} ${res.statusText}`);
-      const data = await res.json();
-      const hasData = data.files?.[SYNC_VERSION_BASENAME] ? 1 : 0;
-      return { status: hasData, gistId };
-    }
-
-    // 无 gistId 时自动创建私密 Gist
-    const res = await fetch('https://api.github.com/gists', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        description: 'NewTab 数据备份',
-        public: false,
-        files: {
-          [SYNC_README_NAME]: {
-            content: 'NewTab 同步数据，请勿手动修改此 Gist 中的文件。',
-          },
-        },
-      }),
-    });
-    if (!res.ok) throw new Error(`创建 Gist 失败: ${res.status} ${res.statusText}`);
-    const data = await res.json();
-    return { status: 0, gistId: data.id };
+  testGithubGist = (token, gistId) => {
+    return testGithubGist(token, gistId);
   }
 
   init = () => {
@@ -210,7 +230,10 @@ export default class DataStores {
 
       if (!this.provider) {
         this.dir = '';
-        this._update = _.debounce(() => { this.push(); }, 1000 * webdavTime);
+        this._update = _.debounce(
+          () => this._pushQueue.drain(),
+          1000 * webdavTime
+        );
         this.provider = new BackgroundSyncProvider(this._buildSyncConfig({ syncType: 'github_gist' }));
       }
     } else {
@@ -225,18 +248,72 @@ export default class DataStores {
 
       if (!this.provider) {
         this.dir = webDavDir;
-        this._update = _.debounce(() => { this.push(); }, 1000 * webdavTime);
+        this._update = _.debounce(
+          () => this._pushQueue.drain(),
+          1000 * webdavTime
+        );
         this.provider = new BackgroundSyncProvider(this._buildSyncConfig({ syncType: 'webdav' }));
       }
     }
 
+    this._registerAutoPull();
+
+    this.pull().finally(() => {
+      if (this._pushQueue.hasPending()) this._update();
+    });
+  }
+
+  /**
+   * 页面重新可见时自动拉取远端更新（原来只在页面加载时拉取一次，
+   * 长开的标签页永远看不到其它设备的改动）。
+   */
+  _registerAutoPull = () => {
+    if (this._visibilityHandler || typeof document === 'undefined') return;
+    this._visibilityHandler = () => {
+      if (document.visibilityState !== 'visible') return;
+      this._pullIfStale();
+    };
+    document.addEventListener('visibilitychange', this._visibilityHandler);
+  }
+
+  _pullIfStale = () => {
+    if (!this.provider || this.lock) return;
+    // 本地还有未推送的变更时不拉取，避免远端数据覆盖掉本地新改动
+    if (this._pushQueue.hasPending()) return;
+    if (Date.now() - this._lastPullAt < PULL_MIN_INTERVAL_MS) return;
     this.pull();
+  }
+
+  /**
+   * 推送前校验：本地基线可能已过期（距上次拉取太久）时，读一次远端版本号。
+   * 若远端已追平/超过本地，说明其它设备推送过——把本地版本号抬到远端之上，
+   * 确保本次推送产生一个新版本号，其它设备能感知并拉取（避免同号推送被静默忽略）。
+   */
+  _guardRemoteAhead = async () => {
+    if (Date.now() - this._lastPullAt < PUSH_STALE_CHECK_MS) return;
+
+    let remoteRaw;
+    try {
+      remoteRaw = await this.readFile(this.dir + SYNC_VERSION_NAME);
+    } catch (_) {
+      // 远端无版本文件（首推）或读取失败：按原流程推送
+      return;
+    }
+
+    const remote = parseInt(remoteRaw);
+    const local = parseInt(this.rootStore.option.item.webdavVersion);
+    if (isNaN(remote) || isNaN(local) || remote < local) return;
+
+    const bumped = remote + 1;
+    console.warn('[sync] 远端版本已领先/追平本地，推送前抬升版本号:', { remote, local, bumped });
+    await this.rootStore.option.setItem('webdavVersion', bumped);
   }
 
   pull = async () => {
     const started = await this._beginSync('pull');
     if (started !== 'ok') return;
 
+    this._lastPullAt = Date.now();
     const { webdavVersion = 1 } = this.rootStore.option.item;
 
     try {
@@ -315,7 +392,7 @@ export default class DataStores {
     }
     webdavVersion = versionNum;
 
-    const { option, link, tools } = this.rootStore;
+    const { option, link } = this.rootStore;
 
     let backupBlob = null;
     try {
@@ -325,7 +402,8 @@ export default class DataStores {
     }
 
     try {
-      localStorageKeys.forEach((key) => {
+      this.cache = {};
+      LOCAL_RESTORE_KEYS.forEach((key) => {
         const value = option.item[key];
         if (value) {
           this.cache[key] = value;
@@ -340,92 +418,17 @@ export default class DataStores {
 
       const blob = new Blob([data], { type: 'application/json' });
       const text = await blob.text();
-      if (!text || text.trim() === '') {
-        throw new Error('远端数据内容为空');
+      const { databaseVersion } = parseSnapshot(text);
+
+      await importSnapshot(blob);
+
+      // 必须等本地保留项写回 db 后再执行 resetChromeSaveOption，避免它读到导入前的旧值
+      await option.setItem('webdavVersion', parseInt(webdavVersion));
+      for (const key of LOCAL_RESTORE_KEYS) {
+        const value = this.cache[key];
+        if (value === undefined) continue;
+        await option.setItem(key, value);
       }
-
-      let json;
-      try {
-        json = JSON.parse(text);
-      } catch (parseError) {
-        throw new Error(`远端数据格式错误: ${parseError.message}`);
-      }
-
-      if (!json || !json.data) {
-        throw new Error('远端数据格式不完整：缺少 data 字段');
-      }
-
-      if (json.data.databaseName && json.data.databaseName !== DB_NAME) {
-        throw new Error(`数据库名称不匹配: 期望 ${DB_NAME}，实际 ${json.data.databaseName}`);
-      }
-
-      let databaseVersion = json.data.databaseVersion;
-      if (!databaseVersion) {
-        console.warn('远端数据缺少 databaseVersion 字段，使用默认版本 1.5');
-        databaseVersion = 1.5;
-      }
-
-      if (json.data.tables) {
-        const tableKeys = Object.keys(json.data.tables);
-        if (tableKeys.length === 0) {
-          throw new Error('远端数据表为空，拒绝导入以避免数据丢失');
-        }
-        const requiredTables = ['option', 'link'];
-        const hasRequiredTable = requiredTables.some((table) =>
-          tableKeys.includes(table)
-        );
-        if (!hasRequiredTable) {
-          console.warn('远端数据缺少基本表，但继续导入');
-        }
-      } else {
-        console.warn('远端数据缺少 tables 字段，尝试继续导入');
-      }
-
-      await db.delete();
-
-      if (!db.isOpen()) {
-        await db.open();
-      }
-
-      await db.import(blob, {
-        noTransaction: false,
-        clearTables: true,
-        acceptVersionDiff: true,
-        progressCallback
-      });
-
-      const importedData = await this.get_dbData();
-      if (!importedData || importedData.size === 0) {
-        throw new Error('导入后数据验证失败：数据为空或大小为0');
-      }
-
-      try {
-        const importedText = await importedData.text();
-        const importedJson = JSON.parse(importedText);
-        if (!importedJson.data) {
-          throw new Error('导入后数据验证失败：缺少 data 字段');
-        }
-        if (importedJson.data.tables && Object.keys(importedJson.data.tables).length === 0) {
-          throw new Error('导入后数据验证失败：数据表为空');
-        }
-        if (!importedJson.data.tables) {
-          console.warn('导入的数据缺少 tables 字段，但数据已成功导入');
-        }
-      } catch (verifyError) {
-        if (verifyError.message.includes('tables')) {
-          console.warn('数据验证警告:', verifyError.message);
-        } else {
-          throw new Error(`导入后数据验证失败: ${verifyError.message}`);
-        }
-      }
-
-      option.setItem('webdavVersion', parseInt(webdavVersion));
-      localStorageKeys.forEach((key) => {
-        if (key !== 'webdavVersion') {
-          const value = this.cache[key];
-          option.setItem(key, value);
-        }
-      });
 
       try {
         await option.resetChromeSaveOption();
@@ -450,25 +453,7 @@ export default class DataStores {
       if (backupBlob && backupBlob.size > 0) {
         try {
           console.log('尝试恢复备份数据...');
-          if (db.isOpen()) {
-            await db.close();
-          }
-          await db.delete();
-          if (!db.isOpen()) {
-            await db.open();
-          }
-          await db.import(backupBlob, {
-            noTransaction: false,
-            clearTables: true,
-            acceptVersionDiff: true,
-            progressCallback
-          });
-
-          const restoredData = await this.get_dbData();
-          if (!restoredData || restoredData.size === 0) {
-            throw new Error('恢复后的数据验证失败：数据为空');
-          }
-
+          await restoreBackup(backupBlob);
           console.log('备份数据恢复成功');
           this._reportSyncError('同步失败，已恢复本地数据', error);
         } catch (restoreError) {
@@ -495,7 +480,7 @@ export default class DataStores {
   /**
    * 已持有锁的前提下推送本地数据到远端。
    */
-  _pushBody = async () => {
+  _pushBody = async (provider = this.provider, dir = this.dir) => {
     const { webdavVersion } = this.rootStore.option.item;
 
     const blob = await this.get_dbData();
@@ -517,9 +502,9 @@ export default class DataStores {
     }
 
     const dataText = await blob.text();
-    await this.provider.writeFiles({
-      [this.dir + SYNC_JSON_NAME]: dataText,
-      [this.dir + SYNC_VERSION_NAME]: num.toString(),
+    await provider.writeFiles({
+      [dir + SYNC_JSON_NAME]: dataText,
+      [dir + SYNC_VERSION_NAME]: num.toString(),
     });
 
     console.log('数据推送成功，版本号:', num);
@@ -527,16 +512,20 @@ export default class DataStores {
 
   push = async () => {
     const started = await this._beginSync('push');
-    if (started !== 'ok') return;
+    if (started !== 'ok') return started;
 
+    let result = 'ok';
     try {
+      await this._guardRemoteAhead();
       await this._pushBody();
     } catch (error) {
       console.error('写入数据文件失败:', error);
       this._reportSyncError('同步数据错误', error);
+      result = 'error';
     } finally {
       await this._endSync();
     }
+    return result;
   }
 
   deleteServeData = () => {
@@ -554,6 +543,8 @@ export default class DataStores {
     }
 
     this._stopLockHeartbeat();
+    this._pushQueue.reset();
+    this._update.cancel?.();
     this.provider = null;
     this.lock = false;
     this.waitType = '';
@@ -572,21 +563,19 @@ export default class DataStores {
 
     const isSyncEnabled = syncType === 'github_gist' ? !!githubToken : !!webDavURL;
 
-    if (!isSyncEnabled || this.lock || !this.provider) {
+    if (!isSyncEnabled) {
       return;
     }
+
+    this._pushQueue.markDirty();
 
     const currentVersion = parseInt(webdavVersion);
     if (isNaN(currentVersion)) {
       console.error('当前版本号无效，重置为时间戳:', webdavVersion);
-      const newVersion = new Date().getTime();
-      this.rootStore.option.setItem('webdavVersion', newVersion);
-      this.waitType = 'push';
-      this._update();
+      this.rootStore.option.setItem('webdavVersion', new Date().getTime());
+      if (this.provider) this._update();
       return;
     }
-
-    this.waitType = 'push';
 
     const newVersion = currentVersion + 1;
     if (isNaN(newVersion) || newVersion <= currentVersion) {
@@ -595,65 +584,23 @@ export default class DataStores {
     } else {
       this.rootStore.option.setItem('webdavVersion', newVersion);
     }
-    this._update();
+    if (this.provider) this._update();
   }
 
   get_dbData = () => {
-    return new Promise((resolve, reject) => {
-      try {
-        db.export({
-          prettyJson: true,
-          progressCallback: () => {},
-          skipTables: ['cache', 'favicon'],
-          transform: (table, value, key) => {
-            if (table === 'option') {
-              switch (value.key) {
-                case 'bgType':
-                case 'bg2Type':
-                  let type_value = _.cloneDeep(value);
-                  if (type_value.value === 'file') {
-                    type_value.value = value.key == 'bgType' ? 'bing' : '';
-                  }
-                  return { value: type_value, key };
-
-                case 'bgBase64':
-                case 'bg2Base64':
-                case 'githubToken': {
-                  let _value = _.cloneDeep(value);
-                  _value.value = '';
-                  return { value: _value, key };
-                }
-              }
-            }
-            return { value, key };
-          }
-        }).then(resolve).catch(reject);
-      } catch (error) {
-        reject(error);
-      }
-    });
+    return exportSnapshot();
   }
 
   readFile = (filePath) => {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const content = await this.provider.readFile(filePath);
-        resolve(content);
-      } catch (error) {
-        reject(error);
-      }
-    });
+    return this.provider.readFile(filePath);
   };
 
-  writeFile = (filePath, blob) => {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const result = await this.provider.writeFile(filePath, blob);
-        resolve(result);
-      } catch (error) {
-        handleError(error, "DataStores.writeFile");
-        reject(error);
-      }
-    });
+  writeFile = async (filePath, blob) => {
+    try {
+      return await this.provider.writeFile(filePath, blob);
+    } catch (error) {
+      handleError(error, "DataStores.writeFile");
+      throw error;
+    }
   };
 }

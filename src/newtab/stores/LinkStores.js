@@ -52,25 +52,11 @@ export default class LinkStore extends BaseStore {
     // });
   }
 
-  updateNav() {
-    return new Promise((resolve, reject) => {
-      this.rootStore.option.getHomeId()
-        .then((homeId) => {
-          this.getLinkByParentId([homeId], this.rootStore.option.showHide).then(
-            (res) => {
-              this.linkNav = res.sort((a, b) => {
-                return a.sort - b.sort;
-              });
-              resolve(this.linkNav);
-            }
-          ).catch((err) => {
-            reject(err);
-          });
-        })
-        .catch((err) => {
-          reject(err);
-        });
-    });
+  async updateNav() {
+    const homeId = await this.rootStore.option.getHomeId();
+    const res = await this.getLinkByParentId([homeId], this.rootStore.option.showHide);
+    this.linkNav = res.sort((a, b) => a.sort - b.sort);
+    return this.linkNav;
   }
 
   async getNav(refresh = false) {
@@ -131,35 +117,18 @@ export default class LinkStore extends BaseStore {
     }, 0);
   }
 
-  addLink(link) {
+  async addLink(link) {
     const field = ["title", "url", "parentId", "sort", "timeKey", "hide"];
-    return new Promise((resolve, reject) => {
-      if (Array.isArray(link)) {
-        const addList = link.map((v) => _.pick(v, field));
-        db.link
-          .bulkPut(addList)
-          .then((res) => {
-            this.rootStore.data.update();
-            resolve(res);
-          })
-          .catch((err) => {
-            handleError(err, "LinkStore.addLink.bulkPut");
-            reject(err);
-          });
-      } else {
-        const add = _.pick(link, field);
-        db.link
-          .put(add)
-          .then((res) => {
-            this.rootStore.data.update();
-            resolve(res);
-          })
-          .catch((err) => {
-            handleError(err, "LinkStore.addLink.put");
-            reject(err);
-          });
-      }
-    });
+    try {
+      const res = Array.isArray(link)
+        ? await db.link.bulkPut(link.map((v) => _.pick(v, field)))
+        : await db.link.put(_.pick(link, field));
+      this.rootStore.data.update();
+      return res;
+    } catch (err) {
+      handleError(err, "LinkStore.addLink");
+      throw err;
+    }
   }
 
   updateLink(links) {
@@ -197,21 +166,15 @@ export default class LinkStore extends BaseStore {
       });
   }
 
-  deleteLinkByTimeKey(timeKeys) {
-    return new Promise((resolve, reject) => {
-      db.link
-        .where("timeKey")
-        .anyOf(timeKeys)
-        .delete()
-        .then((res) => {
-          this.rootStore.data.update();
-          resolve(res);
-        })
-        .catch((err) => {
-          handleError(err, "LinkStore.deleteLinkByTimeKey");
-          reject(err);
-        });
-    });
+  async deleteLinkByTimeKey(timeKeys) {
+    try {
+      const res = await db.link.where("timeKey").anyOf(timeKeys).delete();
+      this.rootStore.data.update();
+      return res;
+    } catch (err) {
+      handleError(err, "LinkStore.deleteLinkByTimeKey");
+      throw err;
+    }
   }
 
   getLinkByParentId(parentIds, hide = false) {
@@ -283,15 +246,9 @@ export default class LinkStore extends BaseStore {
   }
 
   // 模糊搜索
-  searchLink(searchTerm) {
-    return new Promise((resolve, reject) => {
-      const links = _.filter(this._solist, v => {
-        // 创建一个正则表达式对象，进行模糊匹配
-        const regex = new RegExp(_.escapeRegExp(searchTerm), 'i');
-        return regex.test(v.title);
-      });
-      resolve(links);
-    });
+  async searchLink(searchTerm) {
+    const regex = new RegExp(_.escapeRegExp(searchTerm), 'i');
+    return _.filter(this._solist, (v) => regex.test(v.title));
   }
 
 
@@ -369,22 +326,10 @@ export default class LinkStore extends BaseStore {
   }
 
   getLinkByTimeKey(timeKey) {
-    return new Promise((resolve, reject) => {
-      this.safeDbOperation(
-        () =>
-          db.link
-            .where("timeKey")
-            .equals(timeKey)
-            .first(),
-        "LinkStore.getLinkByTimeKey"
-      )
-        .then((res) => {
-          resolve(res);
-        })
-        .catch((err) => {
-          reject(err);
-        });
-    });
+    return this.safeDbOperation(
+      () => db.link.where("timeKey").equals(timeKey).first(),
+      "LinkStore.getLinkByTimeKey"
+    );
   }
 
   async restart() {
@@ -400,34 +345,30 @@ export default class LinkStore extends BaseStore {
   }
 
   // 获取待添加网址列表
-  getPendingLinks() {
-    return new Promise((resolve, reject) => {
-      db.link
+  async getPendingLinks() {
+    try {
+      const res = await db.link
         .where("parentId")
         .equals(PENDING_LINK_PARENT_ID)
-        .toArray()
-        .then((res) => {
-          const { uniqueLinks } = dedupePendingLinks(res || []);
-          resolve(uniqueLinks);
-        })
-        .catch((err) => {
-          handleError(err, "LinkStore.getPendingLinks");
-          reject(err);
-        });
-    });
+        .toArray();
+      const { uniqueLinks } = dedupePendingLinks(res || []);
+      return uniqueLinks;
+    } catch (err) {
+      handleError(err, "LinkStore.getPendingLinks");
+      throw err;
+    }
   }
 
   // 添加待添加网址
-  addPendingLink(url, title) {
-    return new Promise((resolve, reject) => {
-      const normalizedUrl = normalizePendingLinkUrl(url);
+  async addPendingLink(url, title) {
+    const normalizedUrl = normalizePendingLinkUrl(url);
 
-      if (!normalizedUrl) {
-        resolve(null);
-        return;
-      }
+    if (!normalizedUrl) {
+      return null;
+    }
 
-      db.transaction("rw", db.link, async () => {
+    try {
+      const res = await db.transaction("rw", db.link, async () => {
         const pendingLinks = await db.link
           .where("parentId")
           .equals(PENDING_LINK_PARENT_ID)
@@ -461,74 +402,63 @@ export default class LinkStore extends BaseStore {
 
         await db.link.put(newLink);
         return newLink;
-      })
-        .then((res) => {
-          this.rootStore.data.update();
-          resolve(res);
-        })
-        .catch((err) => {
-          handleError(err, "LinkStore.addPendingLink");
-          reject(err);
-        });
-    });
+      });
+      this.rootStore.data.update();
+      return res;
+    } catch (err) {
+      handleError(err, "LinkStore.addPendingLink");
+      throw err;
+    }
   }
 
   // 删除待添加网址
-  removePendingLink(timeKey) {
-    return new Promise((resolve, reject) => {
-      db.link
+  async removePendingLink(timeKey) {
+    try {
+      const res = await db.link
         .where("timeKey")
         .equals(timeKey)
         .and((link) => link.parentId === PENDING_LINK_PARENT_ID)
-        .delete()
-        .then((res) => {
-          this.rootStore.data.update();
-          resolve(res);
-        })
-        .catch((err) => {
-          handleError(err, "LinkStore.removePendingLink");
-          reject(err);
-        });
-    });
+        .delete();
+      this.rootStore.data.update();
+      return res;
+    } catch (err) {
+      handleError(err, "LinkStore.removePendingLink");
+      throw err;
+    }
   }
 
   // 将待添加网址添加到指定分组
-  addPendingLinksToGroup(timeKey, parentId) {
-    return new Promise((resolve, reject) => {
-      db.link
+  async addPendingLinksToGroup(timeKey, parentId) {
+    let link;
+    try {
+      link = await db.link
         .where("timeKey")
         .equals(timeKey)
-        .and((link) => link.parentId === PENDING_LINK_PARENT_ID)
-        .first()
-        .then((link) => {
-          if (!link) {
-            reject(new Error("Link not found"));
-            return;
-          }
-          // 获取目标分组的链接数量，用于设置 sort
-          this.getLinkByParentId([parentId]).then((links) => {
-            const updatedLink = {
-              ...link,
-              parentId: parentId,
-              sort: links.length,
-            };
-            db.link
-              .update(link.linkId, updatedLink)
-              .then((res) => {
-                this.rootStore.data.update();
-                resolve(res);
-              })
-              .catch((err) => {
-                handleError(err, "LinkStore.addPendingLinksToGroup.update");
-                reject(err);
-              });
-          });
-        })
-        .catch((err) => {
-          handleError(err, "LinkStore.addPendingLinksToGroup.get");
-          reject(err);
-        });
-    });
+        .and((v) => v.parentId === PENDING_LINK_PARENT_ID)
+        .first();
+    } catch (err) {
+      handleError(err, "LinkStore.addPendingLinksToGroup.get");
+      throw err;
+    }
+
+    if (!link) {
+      throw new Error("Link not found");
+    }
+
+    try {
+      // 获取目标分组的链接数量，用于设置 sort
+      const links = await this.getLinkByParentId([parentId]);
+      const res = await db.link.update(link.linkId, {
+        ...link,
+        parentId,
+        sort: links.length,
+      });
+      this.rootStore.data.update();
+      return res;
+    } catch (err) {
+      handleError(err, "LinkStore.addPendingLinksToGroup.update");
+      throw err;
+    }
   }
 
 }

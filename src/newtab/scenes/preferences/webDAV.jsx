@@ -1,13 +1,11 @@
 import React from "react";
 import { observer } from "mobx-react";
 import styled from "styled-components";
-import { Form, Button, Input, Modal, Divider, Checkbox, Select, Tag } from "antd";
+import { App as AntApp, Form, Button, Input, Modal, Divider, Checkbox, Select, Tag } from "antd";
 import { useDebounceFn } from 'ahooks';
 import useStores from "~/hooks/useStores";
-import { ExclamationCircleFilled } from "@ant-design/icons";
+import ConfirmDialogIcon from "~/components/ConfirmDialogIcon";
 import _ from "lodash";
-
-const { confirm } = Modal;
 
 const Space = styled.div`
     display: flex;
@@ -30,6 +28,7 @@ const Info = styled.div`
 
 const WebDAV = () => {
     const { option, data, tools } = useStores();
+    const { modal } = AntApp.useApp();
     const _option = _.cloneDeep(option.item);
     const [loading, setLoading] = React.useState(false);
     const [open, setOpen] = React.useState(false);
@@ -65,9 +64,9 @@ const WebDAV = () => {
         setLoading(true);
         data.test(v.webDavURL, v.webDavUsername, v.webDavPassword, v.webDavDir).then((res) => {
             if (res == 1) {
-                confirm({
+                modal.confirm({
                     title: "监测到远端有数据，即将删除本地所有数据",
-                    icon: <ExclamationCircleFilled />,
+                    icon: <ConfirmDialogIcon />,
                     content: (
                         <div>
                             <p>点击确认将删除当前所有数据并拉取远端数据，建议先点击下方按钮导出本地数据</p>
@@ -127,7 +126,7 @@ const WebDAV = () => {
 
                 <Form.Item label={(<Space>服务器链接配置 <Tag color="error">Beta</Tag></Space>)} >
                     <Space >
-                        <Button type="primary" block onClick={onModalOpen} >
+                        <Button type="primary" block onClick={onModalOpen}>
                             设置
                         </Button>
                         {webDavURL ? (<Button onClick={data.deleteServeData} >
