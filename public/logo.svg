@@ -1,16 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
-  <!-- App tile -->
-  <rect x="28" y="28" width="456" height="456" rx="108" fill="#E06400"/>
-  <!-- Browser window -->
-  <rect x="116" y="148" width="280" height="232" rx="36" fill="#FFF8F1"/>
-  <!-- Tab bar strip -->
-  <path d="M116 184h280v-0.01C396 164.1 379.9 148 360 148H152c-19.9 0-36 16.1-36 36z" fill="#FFD2A8"/>
-  <!-- Active tab -->
-  <rect x="148" y="148" width="112" height="36" rx="12" fill="#FFF8F1"/>
-  <!-- Content marks (readable at small size) -->
-  <circle cx="160" cy="240" r="14" fill="#E06400" opacity="0.9"/>
-  <rect x="192" y="230" width="148" height="20" rx="10" fill="#E06400" opacity="0.35"/>
-  <rect x="146" y="280" width="194" height="18" rx="9" fill="#E06400" opacity="0.22"/>
-  <rect x="146" y="318" width="148" height="18" rx="9" fill="#E06400" opacity="0.16"/>
+  <!-- App tile (full bleed) -->
+  <rect width="512" height="512" rx="116" fill="#18181b"/>
+  <!-- T: top bar -->
+  <rect x="76" y="104" width="244" height="88" rx="44" fill="#ffffff"/>
+  <!-- T: stem -->
+  <rect x="154" y="104" width="88" height="316" rx="44" fill="#ffffff"/>
+  <!-- Accent dot -->
+  <circle cx="404" cy="148" r="50" fill="#60a5fa"/>
 </svg>
