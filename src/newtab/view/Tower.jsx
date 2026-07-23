@@ -1,6 +1,6 @@
 import React, { useCallback } from "react";
 import { observer } from "mobx-react";
-import { message, ConfigProvider, theme } from "antd";
+import { App as AntApp, message, ConfigProvider, theme } from "antd";
 import useStores from "~/hooks/useStores";
 import { useDocumentVisibility } from 'ahooks';
 import PublicModal from "~/scenes/Public/PublicModal";
@@ -10,6 +10,7 @@ import { saveFavicon } from "~/db";
 import { db } from "~/db";
 import _ from "lodash";
 import { normalizePendingLinkUrl } from "~/stores/pendingLinks.mjs";
+import { getAppPrimaryColor, getAppTheme } from "~/theme";
 
 const { useToken } = theme;
 
@@ -20,7 +21,7 @@ const Wrap = createGlobalStyle`
   --fff: ${(props) => props.color.fff};
   --borderColor: ${(props) => props.color.borderColor};
   --colorText: ${(props) => props.color.colorText};
-  --PrimaryColor: #1890ff;
+  --PrimaryColor: ${(props) => props.color.primaryColor};
   --sn-font-hei: -apple-system, "Noto Sans", "Helvetica Neue", Helvetica,
     "Nimbus Sans L", Arial, "Liberation Sans", "PingFang SC", "Hiragino Sans GB",
     "Noto Sans CJK SC", "Source Han Sans SC", "Source Han Sans CN",
@@ -33,6 +34,16 @@ const Wrap = createGlobalStyle`
   --homeNavBg: ${(props) => props.color.homeNavBg};
   --homeNavBorderColor: ${(props) => props.color.homeNavBorderColor};
   --linkitemGhostBg: ${(props) => props.color.linkitemGhostBg};
+  --workspaceBackdrop: ${(props) => props.color.workspaceBackdrop};
+  --workspaceSidebar: ${(props) => props.color.workspaceSidebar};
+  --workspaceSidebarEdge: ${(props) => props.color.workspaceSidebarEdge};
+  --workspaceBorder: ${(props) => props.color.workspaceBorder};
+  --workspaceMuted: ${(props) => props.color.workspaceMuted};
+  --workspaceHover: ${(props) => props.color.workspaceHover};
+  --workspaceActive: ${(props) => props.color.workspaceActive};
+  --workspaceNavActive: ${(props) => props.color.workspaceNavActive};
+  --workspaceNavActiveText: ${(props) => props.color.workspaceNavActiveText};
+  --workspaceIconBg: ${(props) => props.color.workspaceIconBg};
 
   background-color: var(--bgColor);
   }
@@ -47,70 +58,86 @@ const CloudWrap = styled.div`
   animation: jv-blink 2s step-start 0s infinite;
 `;
 
+const DARK_WORKSPACE_THEME = {
+  bgColor: "#1a1a1a",
+  fff: "#1f1f1f",
+  borderColor: "rgba(253, 253, 253, 0.12)",
+  colorText: "rgba(255, 255, 255, 0.65)",
+  searcBoxShadowStickled: "rgb(235 235 235) 0px 0px 2px -1px",
+  searcBoxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+  linkitemGhostBg: "#515151",
+  homeLogoOpacity: "0.75",
+  homeNavBg: "rgba(0, 0, 0, 0.18)",
+  homeNavBorderColor: "rgba(0, 0, 0, 0.2)",
+  workspaceBackdrop: "#111111",
+  workspaceSidebar: "#181818",
+  workspaceSidebarEdge: "rgba(255, 255, 255, 0.055)",
+  workspaceBorder: "rgba(255, 255, 255, 0.1)",
+  workspaceMuted: "rgba(255, 255, 255, 0.46)",
+  workspaceHover: "rgba(255, 255, 255, 0.055)",
+  workspaceActive: "rgba(255, 255, 255, 0.085)",
+  workspaceNavActive: "rgba(255, 255, 255, 0.105)",
+  workspaceNavActiveText: "rgba(255, 255, 255, 0.88)",
+  workspaceIconBg: "rgba(255, 255, 255, 0.05)",
+};
+
+const LIGHT_WORKSPACE_THEME = {
+  borderColor: "#ddd",
+  searcBoxShadowStickled: "rgb(0 0 0) 0px 0px 2px -1px",
+  searcBoxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+  homeImgOpacity: "1",
+  linkitemGhostBg: "rgb(230, 233, 236)",
+  homeLogoOpacity: "1",
+  homeNavBg: "rgba(255, 255, 255, 0.18)",
+  homeNavBorderColor: "rgba(255, 255, 255, 0.2)",
+  workspaceBackdrop: "#fafaf9",
+  workspaceSidebar: "#f3f3f1",
+  workspaceSidebarEdge: "rgba(24, 24, 27, 0.045)",
+  workspaceBorder: "rgba(24, 24, 27, 0.09)",
+  workspaceMuted: "rgba(24, 24, 27, 0.48)",
+  workspaceHover: "rgba(24, 24, 27, 0.04)",
+  workspaceActive: "rgba(24, 24, 27, 0.065)",
+  workspaceNavActive: "rgba(24, 24, 27, 0.075)",
+  workspaceNavActiveText: "rgba(24, 24, 27, 0.9)",
+  workspaceIconBg: "rgba(24, 24, 27, 0.035)",
+};
+
+function getWorkspaceTheme(isDark, token, homeImgOpacity) {
+  if (isDark) {
+    return {
+      ...DARK_WORKSPACE_THEME,
+      isDark: true,
+      primaryColor: getAppPrimaryColor(true),
+      homeImgOpacity: homeImgOpacity || "0.2",
+    };
+  }
+
+  return {
+    ...LIGHT_WORKSPACE_THEME,
+    isDark: false,
+    primaryColor: getAppPrimaryColor(false),
+    bgColor: token.colorBgLayout,
+    fff: token.colorBgContainer,
+    colorText: token.colorText,
+  };
+}
+
 const RightClick = React.lazy(() => import("~/components/RightClick"));
 const Preferences = React.lazy(() => import("~/scenes/preferences"));
-// const FloatButton = React.lazy(() => import("~/components/FloatButton"));
 const Tower = ({ children }) => {
   const { link, tools, option, data } = useStores();
   const [messageApi, contextHolder] = message.useMessage();
-  const { systemTheme, tabTitle, homeImgOpacity = 0.2 } = option.item;
+  const { tabTitle, homeImgOpacity = 0.2 } = option.item;
   const { token } = useToken();
+  const isDark = option.getSystemTheme() === "dark";
+  const appTheme = getAppTheme(isDark);
+  const workspaceTheme = getWorkspaceTheme(isDark, token, homeImgOpacity);
 
   const v = React.useRef({
     isInit: false
   }).current;
 
   const documentVisibility = useDocumentVisibility();
-
-  const getTheme = useCallback(() => {
-    let isDark = option.getSystemTheme() === 'dark';
-
-    const t = {
-      cssVar: true,
-      token: {
-        // 中性 slate，避免刺眼橙色
-        colorPrimary: '#5b6570',
-      },
-    }
-    if (isDark) {
-      t.algorithm = theme.darkAlgorithm;
-    }
-    return t;
-  }, [systemTheme]);
-
-  const getMyTheme = useCallback(() => {
-    let isDark = option.getSystemTheme() === 'dark';
-    const t = {
-      isDark,
-    }
-    if (isDark) {
-      t.bgColor = '#1a1a1a';
-      t.fff = '#1f1f1f';
-      t.borderColor = 'rgba(253, 253, 253, 0.12)';
-      t.colorText = 'rgba(255, 255, 255, 0.65)';
-      t.searcBoxShadowStickled = "rgb(235 235 235) 0px 0px 2px -1px"
-      t.searcBoxShadow = "0 2px 8px rgba(0, 0, 0, 0.1)"
-      t.homeImgOpacity = homeImgOpacity || "0.2"
-      t.linkitemGhostBg = "#515151";
-      t.homeLogoOpacity = "0.75";
-      t.homeNavBg = 'rgba(0, 0, 0, 0.18)';
-      t.homeNavBorderColor = 'rgba(0, 0, 0, 0.2)';
-
-    } else {
-      t.bgColor = token.colorBgLayout;
-      t.fff = token.colorBgContainer;
-      t.borderColor = '#ddd';
-      t.colorText = token.colorText;
-      t.searcBoxShadowStickled = "rgb(0 0 0) 0px 0px 2px -1px"
-      t.searcBoxShadow = "0 2px 8px rgba(0, 0, 0, 0.15)"
-      t.homeImgOpacity = "1"
-      t.linkitemGhostBg = "rgb(230, 233, 236)";
-      t.homeLogoOpacity = "1";
-      t.homeNavBg = 'rgba(255, 255, 255, 0.18)';
-      t.homeNavBorderColor = 'rgba(255, 255, 255, 0.2)';
-    }
-    return t;
-  }, [systemTheme, homeImgOpacity]);
 
   const restart = useCallback(_.debounce(() => {
     tools.updateTimeKey();
@@ -329,25 +356,22 @@ const Tower = ({ children }) => {
     return null;
   }
 
-  const myTheme = getMyTheme();
-
   return (
-    <div className={`${myTheme.isDark ? 'isDark' : ''}`}>
-      <Wrap color={myTheme} />
-      <ConfigProvider
-        theme={getTheme()}
-      >
-        <>{children}</>
-        {contextHolder}
-        {/* <FloatButton /> */}
-        <RightClick />
-        <Preferences />
-        <PublicModal />
-        {data.waitType ? (
-          <CloudWrap>
-            {data.waitType === 'pull' ? <IconCloudDownload size={18} stroke={0.8} /> : <IconCloudUpload size={18} stroke={0.8} />}
-          </CloudWrap>
-        ) : null}
+    <div className={workspaceTheme.isDark ? "isDark" : ""}>
+      <Wrap color={workspaceTheme} />
+      <ConfigProvider theme={appTheme}>
+        <AntApp component={false}>
+          <>{children}</>
+          {contextHolder}
+          <RightClick />
+          <Preferences />
+          <PublicModal />
+          {data.waitType ? (
+            <CloudWrap>
+              {data.waitType === 'pull' ? <IconCloudDownload size={18} stroke={0.8} /> : <IconCloudUpload size={18} stroke={0.8} />}
+            </CloudWrap>
+          ) : null}
+        </AntApp>
       </ConfigProvider>
     </div>
   );

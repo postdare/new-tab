@@ -6,6 +6,10 @@ export const GAP = 15;
 export const CARD_PAD = 32;
 export const TITLE_H = 22;
 export const DRAG_ID_PREFIX = "home-link-group_";
+const MAX_COLUMNS = 3;
+const HORIZONTAL_MARGIN = 16;
+const VIEW_MARGIN = 8;
+const CANONICAL_VIEWPORT = { width: 1920, height: 1080 };
 
 export function snap(n) {
   return Math.round(n / SNAP) * SNAP;
@@ -20,41 +24,165 @@ export function estimateSize(linkCount, showTitle) {
   return { w, h };
 }
 
-/** 无已存坐标时，用 3 列瀑布流生成默认绝对坐标（相对视口） */
-export function computeDefaultPositions(groups, showGroupTitle, isSoBarDown) {
-  if (!groups.length) return {};
-  const items = groups.map((g) => ({
-    timeKey: g.timeKey,
-    ...estimateSize(g.links?.length || 1, showGroupTitle),
-  }));
-  const colCount = Math.min(3, items.length);
+export function getViewportSize(viewport) {
+  const fallbackWidth =
+    typeof window !== "undefined" ? window.innerWidth : 1200;
+  const fallbackHeight =
+    typeof window !== "undefined" ? window.innerHeight : 800;
+  return {
+    width: Number.isFinite(viewport?.width) ? viewport.width : fallbackWidth,
+    height: Number.isFinite(viewport?.height) ? viewport.height : fallbackHeight,
+  };
+}
+
+export function getLayoutAnchor(isSoBarDown, viewport) {
+  const { width, height } = getViewportSize(viewport);
+  return {
+    left: width / 2,
+    top: isSoBarDown
+      ? Math.max(24, height * 0.12)
+      : Math.max(80, height * 0.3 + 60),
+  };
+}
+
+function mapPositions(positions, transform) {
+  const mapped = {};
+  const plain = toPlainPositions(positions);
+  Object.keys(plain).forEach((key) => {
+    mapped[key] = transform(plain[key]);
+  });
+  return mapped;
+}
+
+/** 将视口绝对坐标转换为相对布局锚点的坐标。 */
+export function toAnchoredPositions(positions, isSoBarDown, viewport) {
+  const anchor = getLayoutAnchor(isSoBarDown, viewport);
+  return mapPositions(positions, (position) => {
+    return {
+      left: position.left - anchor.left,
+      top: position.top - anchor.top,
+    };
+  });
+}
+
+/** 将相对布局锚点的坐标转换为当前视口坐标。 */
+export function fromAnchoredPositions(positions, isSoBarDown, viewport) {
+  const anchor = getLayoutAnchor(isSoBarDown, viewport);
+  return mapPositions(positions, (position) => {
+    return {
+      left: position.left + anchor.left,
+      top: position.top + anchor.top,
+    };
+  });
+}
+
+/** 过滤无法在首屏渲染的空分组。 */
+export function filterRenderableGroups(groups) {
+  if (!Array.isArray(groups)) return [];
+  return groups.filter(
+    (group) =>
+      group?.timeKey && Array.isArray(group.links) && group.links.length > 0
+  );
+}
+
+function buildSizeByKey(groups, showGroupTitle) {
+  const sizeByKey = {};
+  (groups || []).forEach((group) => {
+    if (group?.timeKey) {
+      sizeByKey[group.timeKey] = estimateSize(
+        group.links?.length || 1,
+        showGroupTitle
+      );
+    }
+  });
+  return sizeByKey;
+}
+
+function getPositionBounds(positions, sizeByKey) {
+  const plain = toPlainPositions(positions);
+  let minLeft = Infinity;
+  let minTop = Infinity;
+  let maxRight = -Infinity;
+  let maxBottom = -Infinity;
+
+  Object.keys(plain).forEach((key) => {
+    const { left, top } = plain[key];
+    const { w, h } = sizeByKey[key] || { w: 120, h: 100 };
+    minLeft = Math.min(minLeft, left);
+    minTop = Math.min(minTop, top);
+    maxRight = Math.max(maxRight, left + w);
+    maxBottom = Math.max(maxBottom, top + h);
+  });
+
+  return { positions: plain, minLeft, minTop, maxRight, maxBottom };
+}
+
+function buildColumns(items, colCount) {
   const cols = Array.from({ length: colCount }, () => ({
     items: [],
     height: 0,
     width: 0,
   }));
+
   items.forEach((item) => {
     let target = cols[0];
-    for (const c of cols) {
-      if (c.height < target.height) target = c;
+    for (const col of cols) {
+      if (col.height < target.height) target = col;
     }
+    if (target.items.length > 0) target.height += GAP;
     target.items.push(item);
-    target.height += item.h + GAP;
+    target.height += item.h;
     target.width = Math.max(target.width, item.w);
   });
 
-  const totalW =
-    cols.reduce((s, c) => s + c.width, 0) + Math.max(0, colCount - 1) * GAP;
-  const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
-  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-  const startX = Math.max(16, (vw - totalW) / 2);
-  const startY = isSoBarDown
-    ? Math.max(24, vh * 0.12)
-    : Math.max(80, vh * 0.3 + 60);
+  const totalWidth =
+    cols.reduce((sum, col) => sum + col.width, 0) +
+    Math.max(0, colCount - 1) * GAP;
+  const maxHeight = Math.max(0, ...cols.map((col) => col.height));
+
+  return { cols, totalWidth, maxHeight };
+}
+
+/**
+ * 生成默认瀑布流布局：宽屏最多 3 列，窄屏自动降列。
+ * 返回 overflow 供交互层提示“当前窗口无法完全容纳”。
+ */
+export function computeDefaultLayout(
+  groups,
+  showGroupTitle,
+  isSoBarDown,
+  viewport
+) {
+  if (!groups.length) {
+    return { positions: {}, columnCount: 0, overflow: false };
+  }
+
+  const items = groups.map((g) => ({
+    timeKey: g.timeKey,
+    ...estimateSize(g.links?.length || 1, showGroupTitle),
+  }));
+
+  const { width: vw, height: vh } = getViewportSize(viewport);
+  const availableWidth = Math.max(0, vw - HORIZONTAL_MARGIN * 2);
+  const maxColumns = Math.min(MAX_COLUMNS, items.length);
+  let layout = buildColumns(items, 1);
+  let columnCount = 1;
+
+  for (let count = maxColumns; count >= 1; count -= 1) {
+    const candidate = buildColumns(items, count);
+    if (candidate.totalWidth <= availableWidth || count === 1) {
+      layout = candidate;
+      columnCount = count;
+      break;
+    }
+  }
+
+  const startX = Math.max(HORIZONTAL_MARGIN, (vw - layout.totalWidth) / 2);
+  const startY = getLayoutAnchor(isSoBarDown, { width: vw, height: vh }).top;
 
   const positions = {};
   let x = startX;
-  cols.forEach((col) => {
+  layout.cols.forEach((col) => {
     let y = startY;
     col.items.forEach((item) => {
       positions[item.timeKey] = {
@@ -65,18 +193,48 @@ export function computeDefaultPositions(groups, showGroupTitle, isSoBarDown) {
     });
     x += col.width + GAP;
   });
-  return positions;
+
+  const overflow =
+    layout.totalWidth > availableWidth ||
+    snap(startY) + layout.maxHeight > vh - VIEW_MARGIN;
+
+  return { positions, columnCount, overflow };
+}
+
+/**
+ * 在固定逻辑画布上整理，输出与真实显示器分辨率无关的锚点相对坐标。
+ */
+export function computeAnchoredDefaultLayout(
+  groups,
+  showGroupTitle,
+  isSoBarDown,
+  viewport
+) {
+  const canonical = computeDefaultLayout(
+    groups,
+    showGroupTitle,
+    isSoBarDown,
+    CANONICAL_VIEWPORT
+  );
+  const positions = toAnchoredPositions(
+    canonical.positions,
+    isSoBarDown,
+    CANONICAL_VIEWPORT
+  );
+  const visible = fromAnchoredPositions(positions, isSoBarDown, viewport);
+  const fitted = fitAllPositions(visible, groups, showGroupTitle, viewport);
+  return {
+    positions,
+    columnCount: canonical.columnCount,
+    overflow: fitted.overflow,
+  };
 }
 
 /** 已有部分坐标时，给新分组找不重叠的起点 */
-export function placeNewGroups(groups, existing, isSoBarDown) {
+export function placeNewGroups(groups, existing) {
   if (!groups.length) return {};
-  const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
-  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-  let anchorLeft = Math.max(24, vw / 2 - 80);
-  let anchorTop = isSoBarDown
-    ? Math.max(24, vh * 0.12)
-    : Math.max(80, vh * 0.3 + 60);
+  let anchorLeft = -80;
+  let anchorTop = 0;
 
   const existingEntries = Object.values(existing || {});
   if (existingEntries.length > 0) {
@@ -87,7 +245,7 @@ export function placeNewGroups(groups, existing, isSoBarDown) {
       if (typeof p?.top === "number") minTop = Math.min(minTop, p.top);
     });
     if (minTop !== Infinity) anchorTop = minTop;
-    anchorLeft = Math.min(maxRight + GAP, vw - 160);
+    anchorLeft = maxRight + GAP;
   }
 
   const positions = {};
@@ -131,46 +289,84 @@ export function buildTitleMap(linkList, timeKeys) {
   return map;
 }
 
-const VIEW_MARGIN = 8;
-
 /** 将单个坐标限制在视口内（卡片超出视口时贴边，尽量完整可见） */
 export function clampPosition(left, top, cardW = 120, cardH = 100) {
-  const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
-  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-  const maxLeft = Math.max(VIEW_MARGIN, vw - cardW - VIEW_MARGIN);
-  const maxTop = Math.max(VIEW_MARGIN, vh - cardH - VIEW_MARGIN);
+  const { width, height } = getViewportSize();
+  const maxLeft = Math.max(VIEW_MARGIN, width - cardW - VIEW_MARGIN);
+  const maxTop = Math.max(VIEW_MARGIN, height - cardH - VIEW_MARGIN);
   return {
     left: snap(Math.min(Math.max(left, VIEW_MARGIN), maxLeft)),
     top: snap(Math.min(Math.max(top, VIEW_MARGIN), maxTop)),
   };
 }
 
-/**
- * 按估算尺寸把全部坐标 clamp 进视口
- * @returns {{ next: object, changed: boolean }}
- */
-export function clampAllPositions(positions, groups, showGroupTitle) {
-  if (!positions || typeof positions !== "object") {
-    return { next: {}, changed: false };
-  }
-  const sizeByKey = {};
-  (groups || []).forEach((g) => {
-    if (g?.timeKey) {
-      sizeByKey[g.timeKey] = estimateSize(g.links?.length || 1, showGroupTitle);
-    }
-  });
+function getAxisShift(min, max, viewportSize) {
+  const lowerBound = VIEW_MARGIN;
+  const upperBound = viewportSize - VIEW_MARGIN;
+  const span = max - min;
+  const available = Math.max(0, upperBound - lowerBound);
 
-  let changed = false;
-  const next = {};
-  Object.keys(positions).forEach((k) => {
-    const p = positions[k];
-    if (!p || typeof p.left !== "number" || typeof p.top !== "number") return;
-    const { w, h } = sizeByKey[k] || { w: 120, h: 100 };
-    const clamped = clampPosition(p.left, p.top, w, h);
-    next[k] = clamped;
-    if (clamped.left !== p.left || clamped.top !== p.top) {
-      changed = true;
-    }
-  });
-  return { next, changed };
+  if (span <= available) {
+    if (min < lowerBound) return lowerBound - min;
+    if (max > upperBound) return upperBound - max;
+    return 0;
+  }
+
+  // 内容本身比视口大时只校正单侧越界，保留所有分组的相对位置。
+  if (min > lowerBound) return lowerBound - min;
+  if (max < upperBound) return upperBound - max;
+  return 0;
+}
+
+/**
+ * 将整个分组簇等量平移到当前视口内，不改变分组之间的相对位置。
+ * 只用于渲染临时视口，不能覆盖用户保存的坐标。
+ * @returns {{ next: object, changed: boolean, overflow: boolean }}
+ */
+export function fitAllPositions(
+  positions,
+  groups,
+  showGroupTitle,
+  viewport
+) {
+  if (!positions || typeof positions !== "object") {
+    return { next: {}, changed: false, overflow: false };
+  }
+
+  const bounds = getPositionBounds(
+    positions,
+    buildSizeByKey(groups, showGroupTitle)
+  );
+  const {
+    positions: next,
+    minLeft,
+    minTop,
+    maxRight,
+    maxBottom,
+  } = bounds;
+
+  if (minLeft === Infinity) {
+    return { next, changed: false, overflow: false };
+  }
+
+  const { width, height } = getViewportSize(viewport);
+  const dx = Math.round(getAxisShift(minLeft, maxRight, width));
+  const dy = Math.round(getAxisShift(minTop, maxBottom, height));
+
+  if (dx !== 0 || dy !== 0) {
+    Object.keys(next).forEach((key) => {
+      next[key] = {
+        left: next[key].left + dx,
+        top: next[key].top + dy,
+      };
+    });
+  }
+
+  return {
+    next,
+    changed: dx !== 0 || dy !== 0,
+    overflow:
+      maxRight - minLeft > width - VIEW_MARGIN * 2 ||
+      maxBottom - minTop > height - VIEW_MARGIN * 2,
+  };
 }

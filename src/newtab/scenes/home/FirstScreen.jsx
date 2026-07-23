@@ -6,7 +6,7 @@ import { useLocation } from "react-router-dom";
 import useStores from "~/hooks/useStores";
 import { IconCirclePlus, IconChevronUp } from "@tabler/icons-react";
 import { motion, useAnimationControls } from "framer-motion";
-import { useUpdateEffect, useHover, useMemoizedFn, useCreation } from "ahooks";
+import { useUpdateEffect, useHover, useCreation } from "ahooks";
 import HomeLinkList from "./HomeLinkList";
 import HomeBgLayer from "./HomeBgLayer";
 import HomeSearch from "~/components/HomeSearch";
@@ -117,15 +117,17 @@ const FirstScreenImgBg = styled(motion.div)`
 const HeaderWrap = styled(motion.div)`
   width: 100%;
   height: ${(props) => props.height};
-  position: relative;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 60;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: var(--fff);
-  border-bottom: 1px solid var(--borderColor);
+  background: transparent;
+  pointer-events: none;
 `;
 const SearchWrap = styled(motion.div)`
-  height: ${(props) => props.height};
   position: absolute;
   z-index: 50;
 `;
@@ -156,7 +158,10 @@ const LogoWrap = styled.div`
   overflow: hidden;
   opacity: var(--homeLogoOpacity);
   cursor: pointer;
+  background: var(--workspaceSidebar);
+  box-shadow: inset -1px 0 var(--workspaceSidebarEdge);
   transition: opacity 0.2s ease;
+  pointer-events: auto;
 
   &:hover {
     opacity: 1;
@@ -196,6 +201,30 @@ const NavRight = styled.div`
   display: flex;
   align-items: center;
   margin-right: 20px;
+  transform: translateY(12px);
+  pointer-events: auto;
+
+  .ant-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    color: var(--colorText);
+    background: transparent;
+    border: 0;
+    transition: transform 0.2s ease, background-color 0.2s ease,
+      border-color 0.2s ease;
+  }
+
+  .ant-btn:hover {
+    color: var(--colorText) !important;
+    background: var(--workspaceHover) !important;
+    border-color: var(--workspaceBorder) !important;
+    transform: translateY(-1px);
+  }
+
+  .ant-btn:active {
+    transform: translateY(0) scale(0.97);
+  }
 `;
 const clockAnimations = {
   show: {
@@ -270,7 +299,17 @@ const FirstScreen = (props) => {
   const { handleUnlock, unlock, showTopIcon } = props;
 
   const { home, tools, option, link } = useStores();
-  const { isSoBarDown, bgColor, bgType, showHomeClock, homeLinkMaxNum = 14, soHdCenter, bgImageFit = 'cover', bg2ImageFit = 'cover', homeGlassEffect, showHomeGroupTitle = true } = option.item;
+  const {
+    isSoBarDown,
+    bgColor,
+    bgType,
+    showHomeClock,
+    homeLinkMaxNum = 14,
+    bgImageFit = "cover",
+    bg2ImageFit = "cover",
+    homeGlassEffect,
+    showHomeGroupTitle = true,
+  } = option.item;
 
   const effectiveKeys = option.getHomeLinkTimeKeys();
   const effectiveKeysSig = effectiveKeys.join(',');
@@ -281,7 +320,6 @@ const FirstScreen = (props) => {
   // 智能判断实际的展示方式（初始值：如果是 auto 则先用 cover，待图片加载后更新）
   const [actualBg1ImageFit, setActualBg1ImageFit] = React.useState(bgImageFit === 'auto' ? 'cover' : bgImageFit);
   const [actualBg2ImageFit, setActualBg2ImageFit] = React.useState(bg2ImageFit === 'auto' ? 'cover' : bg2ImageFit);
-  const searchWrapController = useAnimationControls();
   const clockWrapController = useAnimationControls();
 
   const { token } = useToken();
@@ -289,51 +327,14 @@ const FirstScreen = (props) => {
   const [homeGroups, setHomeGroups] = React.useState([]);
   const [showHomeLink, setShowHomeLink] = React.useState(!unlock);
   const [pendingLinksCount, setPendingLinksCount] = React.useState(0);
+  const searchPosition = {
+    x: "-50%",
+    top: isSoBarDown ? "85vh" : "30vh",
+    left: "50%",
+  };
 
   const logoIconRef = React.useRef(null);
   const isLogoIconHovering = useHover(logoIconRef);
-
-  const searchAnimations = useMemoizedFn(() => {
-    return {
-      center: {
-        x: "-50%",
-        top: isSoBarDown ? "85vh" : "30vh",
-        left: "50%",
-        opacity: 1,
-        transition: { duration: 0.2, ease: "easeOut" },
-      },
-      topInit: (props) => ({
-        x: soHdCenter ? '-50%' : 0,
-        top: "-50px",
-        left: soHdCenter ? "50%" : props.navWidth,
-        opacity: 0,
-        transition: { duration: 0.2, ease: "backIn" },
-      }),
-      topOut: (props) => ({
-        x: "-50%",
-        top: "50vh",
-        left: "50%",
-        opacity: 0,
-        transition: { duration: 0.3, ease: "easeIn" },
-      }),
-      top: (props) => ({
-        x: soHdCenter ? '-50%' : 0,
-        top: (props.headerHeight - 48) / 2,
-        left: soHdCenter ? "50%" : props.navWidth,
-        opacity: 1,
-        transition: { duration: 0.2, ease: "linear" },
-      }),
-    }
-  }, [isSoBarDown, soHdCenter])
-
-  const changeSoBarDown = useMemoizedFn(() => {
-    if (!unlock) {
-      searchWrapController.start("topOut").then(() => {
-        searchWrapController.start("center");
-      });
-    }
-  }, [unlock, searchWrapController])
-
 
   const bgImg = useCreation(() => {
     const showBg1 = bg1DisplayUrl && (!home.isBg2 || !home.bg2Url);
@@ -387,38 +388,15 @@ const FirstScreen = (props) => {
     }
   }, [home]);
 
-  // 监听首次加载状态，显示初始化提示
-  React.useEffect(() => {
-    if (bgType === 'bing' && home.isFirstLoad && home.isLoadingWallpaper) {
-      // 提示已经在 getBingBg() 中通过 messageApi 显示
-      // 这里可以添加额外的UI提示如果需要
-    }
-  }, [bgType, home.isFirstLoad, home.isLoadingWallpaper]);
-
   useUpdateEffect(() => {
     if (unlock) {
       setShowHomeLink(false);
-      searchWrapController.start("topOut").then(() => {
-        clockWrapController.start("hidden");
-        searchWrapController.start("topInit").then(() => {
-          searchWrapController.start("top");
-        });
-      });
+      clockWrapController.start("hidden");
     } else {
-      searchWrapController.start("topInit").then(() => {
-        searchWrapController.start("topOut").then(() => {
-          searchWrapController.start("center");
-          clockWrapController.start("show");
-          setShowHomeLink(true);
-        });
-      });
+      clockWrapController.start("show");
+      setShowHomeLink(true);
     }
   }, [unlock]);
-
-
-  useUpdateEffect(() => {
-    changeSoBarDown();
-  }, [isSoBarDown])
 
   React.useEffect(() => {
     if (!unlock && effectiveKeys.length && !home.isBg2) {
@@ -527,8 +505,8 @@ const FirstScreen = (props) => {
                 <Button
                   type="text"
                   onClick={() => (tools.tabListDrawer = true)}
-                  icon={<IconCirclePlus size={22} stroke={1} />}
-                ></Button>
+                  icon={<IconCirclePlus size={20} stroke={1.5} />}
+                />
               </Badge>
             </Tooltip>
           ) : null}
@@ -548,15 +526,18 @@ const FirstScreen = (props) => {
           </ClockContent>
         </ClockWrap>
       ) : null}
-      <SearchWrap
-        custom={props}
-        initial={unlock ? 'top' : "center"}
-        variants={searchAnimations()}
-        animate={searchWrapController}
-        
-      >
-        <HomeSearch stickled={unlock} className={homeGlassEffect ? 'glass-card' : ''} />
-      </SearchWrap>
+      {!unlock ? (
+        <SearchWrap
+          initial={{ ...searchPosition, opacity: 0 }}
+          animate={{ ...searchPosition, opacity: 1 }}
+          transition={{ duration: 0.16, ease: "easeOut" }}
+        >
+          <HomeSearch
+            stickled={false}
+            className={homeGlassEffect ? "glass-card" : ""}
+          />
+        </SearchWrap>
+      ) : null}
       <HomeLinkList
         homeGroups={homeGroups}
         isSoBarDown={isSoBarDown}
@@ -565,7 +546,12 @@ const FirstScreen = (props) => {
         glassMode={homeGlassEffect}
         showGroupTitle={showHomeGroupTitle}
       />
-      <HomeBgLayer stickled={unlock} />
+      <HomeBgLayer
+        stickled={unlock}
+        homeGroups={homeGroups}
+        isSoBarDown={isSoBarDown}
+        showGroupTitle={showHomeGroupTitle}
+      />
     </>
   );
 };

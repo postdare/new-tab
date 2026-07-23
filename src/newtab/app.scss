@@ -208,7 +208,9 @@ body {
 
 .selected {
   .link-item {
-    border: 1px solid var(--PrimaryColor);
+    border-color: transparent;
+    background: var(--workspaceNavActive);
+    box-shadow: none;
   }
 }
 
@@ -350,6 +352,197 @@ body {
   // }
 }
 
+/* 管理页：中性背景、留白、文字层级和必要交互态 */
+.link-workspace {
+  .link-panel {
+    margin: 0;
+    padding: 0 0 30px;
+  }
+
+  .link-panel + .link-panel {
+    position: relative;
+    padding-top: 4px;
+
+    &::before {
+      content: "";
+      position: absolute;
+      top: -15px;
+      right: 18px;
+      left: 18px;
+      height: 1px;
+      background: var(--workspaceBorder);
+      opacity: 0.65;
+      pointer-events: none;
+    }
+  }
+
+  .link-title {
+    min-height: 24px;
+    margin: 0 2px 12px;
+    gap: 7px;
+  }
+
+  .link-title-item {
+    height: 24px;
+    padding: 0;
+    color: var(--colorText);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 24px;
+    letter-spacing: -0.02em;
+  }
+
+  .link-title h4 {
+    cursor: text;
+  }
+
+  .link-title-icon {
+    color: var(--workspaceMuted);
+  }
+
+  .link-title-input {
+    min-width: 180px;
+    background: var(--workspaceHover);
+    border-radius: 6px;
+  }
+
+  .link-item.ant-card {
+    min-height: 64px;
+    overflow: hidden;
+    border: 0 !important;
+    border-radius: 10px;
+    background: var(--workspaceHover);
+    box-shadow: none;
+    transition: background-color 0.18s ease;
+  }
+
+  .link-item.ant-card-hoverable:hover {
+    background: var(--workspaceActive);
+    box-shadow: none;
+  }
+
+  .link-item.ant-card-hoverable:active {
+    background: var(--workspaceNavActive);
+  }
+
+  .selected .link-item.ant-card {
+    background: var(--workspaceNavActive);
+  }
+
+  .link-item .ant-card-body {
+    min-height: 64px;
+    padding: 12px;
+    box-sizing: border-box;
+  }
+
+  .link-item-body-left {
+    width: 36px;
+    height: 36px;
+    margin-right: 10px;
+    justify-content: center;
+    flex: none;
+    border: 0;
+    border-radius: 10px;
+    background: var(--workspaceIconBg);
+  }
+
+  .link-item-body-right {
+    height: 36px;
+    color: var(--colorText);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.38;
+    letter-spacing: -0.01em;
+  }
+
+  .link-item-body-right .ant-typography {
+    color: inherit;
+  }
+
+  .link-item .link-a:focus-visible {
+    border-radius: 10px;
+    outline: 2px solid color-mix(in srgb, var(--colorText) 55%, transparent);
+    outline-offset: -3px;
+  }
+
+  .link-new-panel {
+    margin-top: 24px;
+  }
+
+  .link-new-panel.null {
+    min-height: 140px;
+    border: 1px dashed color-mix(
+      in srgb,
+      var(--colorText) 22%,
+      transparent
+    );
+    border-radius: 12px;
+    background: transparent;
+  }
+
+  .link-new-panel.null > div {
+    min-height: 140px;
+  }
+
+  .link-new-panel.null .null_help {
+    right: 12px;
+    bottom: 8px;
+    transform: none;
+    color: var(--workspaceMuted);
+    font-size: 12px;
+    letter-spacing: 0;
+  }
+
+  .link-item-ghost {
+    border-radius: 10px;
+  }
+
+  .link-delect-panel {
+    right: 24px;
+    bottom: 24px;
+    width: 76px;
+    height: 76px;
+    border: 1px solid var(--workspaceBorder);
+    border-radius: 16px;
+    background: var(--workspaceActive);
+    opacity: 0.92;
+  }
+
+  .link-delect-panel > svg {
+    color: var(--workspaceMuted);
+    transform: translate(-50%, -50%);
+  }
+}
+
+@media (max-width: 1480px) {
+  .link-workspace .link-module-span-4 > .ant-row > .ant-col-4 {
+    flex: 0 0 25%;
+    max-width: 25%;
+  }
+}
+
+@media (max-width: 1180px) {
+  .link-workspace .link-module-span-3 > .ant-row > .ant-col-3,
+  .link-workspace .link-module-span-4 > .ant-row > .ant-col-4,
+  .link-workspace .link-module-span-6 > .ant-row > .ant-col-6 {
+    flex: 0 0 33.333333%;
+    max-width: 33.333333%;
+  }
+}
+
+@media (max-width: 900px) {
+  .link-workspace .link-panel {
+    padding-bottom: 22px;
+  }
+
+  .link-workspace .link-module-span-3 > .ant-row > .ant-col-3,
+  .link-workspace .link-module-span-4 > .ant-row > .ant-col-4,
+  .link-workspace .link-module-span-6 > .ant-row > .ant-col-6 {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+}
+
 
 
 .first-screen {
@@ -381,12 +574,64 @@ body {
 .preferences-modal {
   .ant-modal-content {
     padding: 0;
+    background: var(--workspaceBackdrop);
+    box-shadow: 0 18px 54px rgba(24, 24, 27, 0.18);
   }
 
   .ant-modal-header {
     padding: 15px 24px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--workspaceBorder);
+    background: transparent;
     margin: 0;
+  }
+
+  .ant-modal-title {
+    color: var(--colorText);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .ant-modal-close {
+    color: var(--workspaceMuted);
+  }
+
+  .ant-modal-close:hover {
+    color: var(--colorText);
+    background: var(--workspaceHover);
+  }
+
+  .ant-segmented {
+    padding: 3px;
+    background: var(--workspaceHover);
+  }
+
+  .ant-segmented-item {
+    color: var(--workspaceMuted);
+    transition: color 0.18s ease, background-color 0.18s ease;
+  }
+
+  .ant-segmented-item:hover {
+    color: var(--colorText);
+  }
+
+  .ant-segmented-item-selected {
+    color: var(--workspaceNavActiveText);
+    background: var(--workspaceNavActive);
+    box-shadow: none;
+  }
+
+  .ant-divider {
+    border-color: var(--workspaceBorder);
+  }
+
+  .ant-upload-wrapper .ant-upload.ant-upload-select {
+    border-color: var(--workspaceBorder);
+    background: transparent;
+  }
+
+  .ant-upload-wrapper .ant-upload.ant-upload-select:hover {
+    border-color: var(--PrimaryColor);
+    background: var(--workspaceHover);
   }
 }
 

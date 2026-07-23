@@ -49,10 +49,12 @@ const saveLActiveCache = (e) => {
 }
 
 const NavWrap = styled.div`
-  height: calc(100vh - ${(props) => (props.headerHeight)}px);
-  background-color: var(--fff);
-  border-right: 1px solid var(--borderColor);
+  height: 100vh;
+  background: var(--workspaceSidebar);
+  box-shadow: inset -1px 0 var(--workspaceSidebarEdge);
   margin: 0;
+  padding: calc(${(props) => props.headerHeight}px + 12px) 8px 8px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
 `;
@@ -60,12 +62,20 @@ const NavWrap = styled.div`
 const NavTOP = styled.ul`
   overflow-y: auto;
   flex: 1;
-  padding: 4px;
+  padding: 10px 8px;
   box-sizing: border-box;
   margin: 0;
+  list-style: none;
+  background: transparent;
+
+  .ant-divider {
+    height: 6px;
+    margin: 10px 0 !important;
+    border: 0;
+  }
 `;
 const NavBottom = styled.div`
-  padding: 8px 0;
+  padding: 10px 4px 2px 0;
   box-sizing: border-box;
   margin: 0px;
   display: flex;
@@ -74,11 +84,11 @@ const NavBottom = styled.div`
   -webkit-box-pack: center;
   justify-content: center;
   gap: 12px;
-  height: 28px;
+  height: 32px;
   line-height: 1;
   > span {
     font-size: 12px;
-    color: #aaa;
+    color: var(--workspaceMuted);
     cursor: pointer;
     &:hover{
       color: #999;
@@ -86,7 +96,7 @@ const NavBottom = styled.div`
   }
   > i {
     font-size: 10px;
-    color: #aaa;
+    color: var(--workspaceMuted);
     font-style: normal;
   }
 `;
@@ -94,51 +104,50 @@ const NavBottom = styled.div`
 const NavLi = styled.li`
   display: flex;
   align-items: center;
-  padding: 0 16px 0 20px;
-  height: 36px;
-  gap: 8px;
+  padding: 0 12px;
+  height: 40px;
+  gap: 10px;
   cursor: pointer;
-  border-radius: 8px;
-  margin: 0 8px;
+  border-radius: 11px;
+  margin: 0;
   color: var(--colorText);
   opacity: 0.72;
-  transition: background-color 0.15s ease, opacity 0.15s ease, color 0.15s ease;
+  transition: background-color 0.2s ease, opacity 0.2s ease,
+    color 0.2s ease, transform 0.2s ease;
   position: relative;
 
-  &:hover {
+  &:hover:not(.active) {
     opacity: 1;
-    background-color: ${(props) =>
-      props.$isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.04)"};
+    background: var(--workspaceHover);
   }
 
   &.active {
     opacity: 1;
-    font-weight: 600;
-    color: var(--colorText);
-    background-color: ${(props) =>
-      props.$isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.06)"};
+    font-weight: 500;
+    color: var(--workspaceNavActiveText);
+    background: var(--workspaceNavActive);
 
-    /* 左侧细条点缀，比整块主色底更干净 */
-    &::before {
-      content: "";
-      position: absolute;
-      left: 6px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 3px;
-      height: 14px;
-      border-radius: 2px;
-      background: var(--colorText);
-      opacity: 0.35;
+    svg {
+      opacity: 0.96;
     }
   }
 
+  &:active {
+    transform: scale(0.985);
+  }
+
   span {
-    font-size: 13px;
+    font-size: 13.5px;
+    letter-spacing: -0.01em;
+  }
+
+  svg {
+    flex: none;
+    opacity: 0.78;
   }
 
   & + & {
-    margin-top: 2px;
+    margin-top: 3px;
   }
 
   &:last-child {
@@ -146,11 +155,10 @@ const NavLi = styled.li`
   }
 `;
 
-const Nav = (props) => {
-  const { link, tools, option } = useStores();
+const Nav = () => {
+  const { link, tools } = useStores();
   const navigate = useNavigate();
   const location = useLocation();
-  const isDark = option.getSystemTheme?.() === "dark";
 
   const state = useReactive(
     {
@@ -175,7 +183,7 @@ const Nav = (props) => {
         label: item.title,
         key: item.timeKey,
         id: item.linkId,
-        icon: <IconFolder size={16} stroke={0.8} />,
+        icon: <IconFolder size={17} stroke={1.4} />,
         type: "link",
         _info: item,
       });
@@ -187,7 +195,7 @@ const Nav = (props) => {
       getItem({
         label: "首选项",
         key: "preferences",
-        icon: <IconSettings size={20} stroke={1} />,
+        icon: <IconSettings size={17} stroke={1.4} />,
       }),
     ];
   }, [link.linkNav]);
@@ -211,7 +219,7 @@ const Nav = (props) => {
       } else if (e.key === "preferences") {
         tools.preferencesOpen = true;
       } else if (e.key === "Manual" || e.key === "About") {
-        tools.openPublicModal("About", {}, 440, "关于");
+        tools.openPublicModal("About", {}, 560, "关于");
       } else if (e.key === "export") {
         tools.onExport();
       }
@@ -353,7 +361,6 @@ const Nav = (props) => {
           return (
             <NavLi
               className={isActive(v.key, v.type) ? "active" : ""}
-              $isDark={isDark}
               onClick={() => onClick(v)}
               onContextMenu={(e) => onContextMenu(e, v)}
               key={v.key}

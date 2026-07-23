@@ -8,9 +8,9 @@ import useStores from "~/hooks/useStores";
 import useDebounce from "~/hooks/useDebounce";
 import { useMemoizedFn } from "ahooks";
 import { IconAppWindow, IconPlus, IconBookmark, IconInfoCircle } from "@tabler/icons-react";
-import { ExclamationCircleFilled } from "@ant-design/icons";
+import ConfirmDialogIcon from "~/components/ConfirmDialogIcon";
 import styled from "styled-components";
-import { Button, Modal, Empty, Tooltip } from "antd";
+import { App as AntApp, Button, Empty, Tooltip } from "antd";
 
 const chrome = window.chrome;
 Sortable.mount(new MultiDrag());
@@ -27,10 +27,34 @@ const ListNullWrap = styled.div`
 const AddAll = styled(Button)`
   display: flex;
   align-items: center;
-  font-size: 14px !important;
   justify-content: center;
   width: 100%;
-  margin-bottom: 10px;
+  height: 44px;
+  margin: 4px 0 12px;
+  padding: 0 16px;
+  border: 0 !important;
+  border-radius: 11px;
+  color: var(--workspaceNavActiveText) !important;
+  background: var(--workspaceActive) !important;
+  box-shadow: none !important;
+  font-size: 14px !important;
+  font-weight: 500;
+  transition: background-color 0.18s ease, transform 0.18s ease;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--workspaceNavActiveText) !important;
+    background: var(--workspaceNavActive) !important;
+  }
+
+  &:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--colorText) 45%, transparent);
+    outline-offset: 2px;
+  }
+
+  &:active {
+    transform: scale(0.985);
+  }
 `;
 
 const PendingLinksWrap = styled.div`
@@ -117,6 +141,7 @@ const TabList = (props) => {
   const [pendingLinks, setPendingLinks] = React.useState([]);
   const [isDataReady, setIsDataReady] = React.useState(false);
   const { tools, link, option } = useStores();
+  const { modal } = AntApp.useApp();
   const { copyClose } = option.item;
 
   const state = React.useRef({
@@ -136,9 +161,9 @@ const TabList = (props) => {
   });
 
   const handleAddAll = useMemoizedFn(() => {
-    Modal.confirm({
+    modal.confirm({
       title: "确认添加全部?",
-      icon: <ExclamationCircleFilled />,
+      icon: <ConfirmDialogIcon />,
       content: "即将添加全部网页到新分组",
       okText: "确认",
       okType: "danger",
@@ -387,9 +412,8 @@ const TabList = (props) => {
       )}
 
       {shouldRenderContent && list.length !== 0 ? <AddAll
-        type="primary"
+        type="text"
         icon={<IconPlus size={18} />}
-        size="large"
         onClick={handleAddAll}
       >
         添加全部到新分组

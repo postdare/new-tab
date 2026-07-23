@@ -4,24 +4,28 @@ import styled from "styled-components";
 import { ReactSortable } from "react-sortablejs";
 import { DndContext, useDraggable } from "@dnd-kit/core";
 import { restrictToParentElement } from "@dnd-kit/modifiers";
+import { IconGripHorizontal } from "@tabler/icons-react";
 import { useMemoizedFn, useDebounceFn } from "ahooks";
+import _ from "lodash";
 import useStores from "~/hooks/useStores";
 import useDebounce from "~/hooks/useDebounce";
 import LinkItemSmall from "~/scenes/Link/LinkItemSmall";
 import { filterLinkList } from "~/utils";
 import {
   DRAG_ID_PREFIX,
-  snap,
-  computeDefaultPositions,
-  placeNewGroups,
-  toPlainPositions,
   buildTitleMap,
-  clampAllPositions,
   clampPosition,
+  computeAnchoredDefaultLayout,
   estimateSize,
+  filterRenderableGroups,
+  fitAllPositions,
+  fromAnchoredPositions,
+  placeNewGroups,
+  getLayoutAnchor,
+  getViewportSize,
+  snap,
+  toPlainPositions,
 } from "~/utils/homeLinkLayout";
-import { IconGripHorizontal } from "@tabler/icons-react";
-import _ from "lodash";
 
 const HomeLinkOuter = styled.div`
   position: absolute;
@@ -190,7 +194,12 @@ const HomeLinkGroupInner = (props) => {
     [onUpdateSort]
   );
 
-  if (!timeKey || !linkList || !Array.isArray(linkList) || linkList.length === 0) {
+  if (
+    !timeKey ||
+    !linkList ||
+    !Array.isArray(linkList) ||
+    linkList.length === 0
+  ) {
     return null;
   }
 
@@ -267,6 +276,7 @@ const HomeLinkListComponent = (props) => {
   const { option, tools, link } = useStores();
   const layoutEpoch = tools.homeLinkLayoutEpoch;
   const [activeKey, setActiveKey] = React.useState(null);
+  const [viewport, setViewport] = React.useState(getViewportSize);
   const [positions, setPositions] = React.useState(() =>
     toPlainPositions(option.item.homeLinkPositions)
   );
@@ -275,12 +285,10 @@ const HomeLinkListComponent = (props) => {
   const appliedEpochRef = React.useRef(layoutEpoch);
   const validGroupsRef = React.useRef([]);
 
-  const validGroups = React.useMemo(() => {
-    if (!homeGroups || !Array.isArray(homeGroups)) return [];
-    return homeGroups.filter(
-      (g) => g && g.timeKey && Array.isArray(g.links) && g.links.length > 0
-    );
-  }, [homeGroups]);
+  const validGroups = React.useMemo(
+    () => filterRenderableGroups(homeGroups),
+    [homeGroups]
+  );
 
   validGroupsRef.current = validGroups;
 
@@ -310,21 +318,15 @@ const HomeLinkListComponent = (props) => {
 
     if (!forceRelayout && initedKeysRef.current === validKeySig) return;
 
-    const fromStore = forceRelayout
-      ? {}
-      : toPlainPositions(option.item.homeLinkPositions);
+    const fromStore = toPlainPositions(option.item.homeLinkPositions);
 
-    const missing = forceRelayout
-      ? validGroups
-      : validGroups.filter((g) => !fromStore[g.timeKey]);
+    const missing = validGroups.filter((g) => !fromStore[g.timeKey]);
 
     const validSet = new Set(validGroups.map((g) => g.timeKey));
     const pruned = {};
-    if (!forceRelayout) {
-      Object.keys(fromStore).forEach((k) => {
-        if (validSet.has(k)) pruned[k] = fromStore[k];
-      });
-    }
+    Object.keys(fromStore).forEach((k) => {
+      if (validSet.has(k)) pruned[k] = fromStore[k];
+    });
 
     initedKeysRef.current = validKeySig;
     appliedEpochRef.current = layoutEpoch;
@@ -341,13 +343,14 @@ const HomeLinkListComponent = (props) => {
 
     let additions;
     if (Object.keys(pruned).length === 0) {
-      additions = computeDefaultPositions(
+      additions = computeAnchoredDefaultLayout(
         missing,
         showGroupTitle,
-        isSoBarDown
-      );
+        isSoBarDown,
+        viewport
+      ).positions;
     } else {
-      additions = placeNewGroups(missing, pruned, isSoBarDown);
+      additions = placeNewGroups(missing, pruned);
     }
 
     persistPositions({ ...pruned, ...additions });
@@ -359,29 +362,38 @@ const HomeLinkListComponent = (props) => {
     validGroups,
     option,
     persistPositions,
+    viewport,
   ]);
 
-  // 窗口缩放时把飞出视口的分组拉回来
-  const { run: clampOnResize } = useDebounceFn(
+  // F12/窗口缩放只更新临时渲染视口，不覆盖用户保存的分组坐标。
+  const { run: updateViewportOnResize } = useDebounceFn(
     () => {
-      const groups = validGroupsRef.current;
-      if (!groups.length) return;
-      const { next, changed } = clampAllPositions(
-        positionsRef.current,
-        groups,
-        showGroupTitle
-      );
-      if (changed) {
-        persistPositions(next);
-      }
+      setViewport(getViewportSize());
     },
     { wait: 150 }
   );
 
   React.useEffect(() => {
-    window.addEventListener("resize", clampOnResize);
-    return () => window.removeEventListener("resize", clampOnResize);
-  }, [clampOnResize]);
+    window.addEventListener("resize", updateViewportOnResize);
+    return () => window.removeEventListener("resize", updateViewportOnResize);
+  }, [updateViewportOnResize]);
+
+  const visiblePositions = React.useMemo(
+    () => {
+      const absolute = fromAnchoredPositions(
+        positions,
+        isSoBarDown,
+        viewport
+      );
+      return fitAllPositions(
+        absolute,
+        validGroups,
+        showGroupTitle,
+        viewport
+      ).next;
+    },
+    [isSoBarDown, positions, showGroupTitle, validGroups, viewport]
+  );
 
   const handleDragStart = useMemoizedFn((event) => {
     const id = String(event.active?.id || "");
@@ -396,25 +408,30 @@ const HomeLinkListComponent = (props) => {
     if (!id.startsWith(DRAG_ID_PREFIX)) return;
 
     const timeKey = id.slice(DRAG_ID_PREFIX.length);
-    const prev = positionsRef.current[timeKey] || { left: 0, top: 0 };
+    const prev =
+      visiblePositions[timeKey] ||
+      positionsRef.current[timeKey] ||
+      { left: 0, top: 0 };
     const dx = delta?.x || 0;
     const dy = delta?.y || 0;
     if (dx === 0 && dy === 0) return;
 
     const group = validGroupsRef.current.find((g) => g.timeKey === timeKey);
-    const size = estimateSize(
-      group?.links?.length || 1,
-      showGroupTitle
-    );
+    const size = estimateSize(group?.links?.length || 1, showGroupTitle);
     const raw = {
       left: snap(prev.left + dx),
       top: snap(prev.top + dy),
     };
     const clamped = clampPosition(raw.left, raw.top, size.w, size.h);
+    const anchor = getLayoutAnchor(isSoBarDown, viewport);
+    const anchored = {
+      left: clamped.left - anchor.left,
+      top: clamped.top - anchor.top,
+    };
 
     persistPositions({
       ...positionsRef.current,
-      [timeKey]: clamped,
+      [timeKey]: anchored,
     });
   });
 
@@ -431,7 +448,7 @@ const HomeLinkListComponent = (props) => {
         onDragEnd={handleDragEnd}
       >
         {validGroups.map((group, index) => {
-          const pos = positions[group.timeKey] || {
+          const pos = visiblePositions[group.timeKey] || {
             left: 40 + index * 24,
             top: 200 + index * 24,
           };

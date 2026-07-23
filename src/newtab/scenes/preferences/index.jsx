@@ -1,7 +1,7 @@
 import React from "react";
 import { observer } from "mobx-react";
 import useStores from "~/hooks/useStores";
-import { Modal, theme, Divider, Segmented } from "antd";
+import { Modal, Segmented } from "antd";
 import styled from "styled-components";
 import PreferencesBG from "./bg"
 import PreferencesLink from "./link"
@@ -89,7 +89,7 @@ const Preferences = () => {
       destroyOnClose={true}
       // maskClosable={false}
       // keyboard={false}
-      width={420}
+      width={560}
     >
       <Wrap className="scroll-container">
         <NavWrap>

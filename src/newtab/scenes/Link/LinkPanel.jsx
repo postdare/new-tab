@@ -7,9 +7,9 @@ import {
 import { observer } from "mobx-react";
 import useStores from "~/hooks/useStores";
 import useDebounce from "~/hooks/useDebounce";
-import { ExclamationCircleFilled } from "@ant-design/icons";
+import ConfirmDialogIcon from "~/components/ConfirmDialogIcon";
 import { IconTrash } from "@tabler/icons-react";
-import { Col, Row, Modal } from "antd";
+import { App as AntApp, Col, Row } from "antd";
 import { filterLinkList, getID, writeText, openUrl } from "~/utils";
 import _ from "lodash";
 import { ReactSortable } from "react-sortablejs";
@@ -21,8 +21,6 @@ import {
   hasMovedPendingLinks,
   PENDING_LINK_PARENT_ID,
 } from "~/stores/pendingLinks.mjs";
-
-const { confirm } = Modal;
 
 const defaultTitle = "分组";
 
@@ -71,6 +69,7 @@ const openAllLink = (list) => {
 
 const LinkPanel = (props) => {
   const { link, tools, option } = useStores();
+  const { modal } = AntApp.useApp();
   const { linkSpan } = option.item;
   const { warpRef } = props;
   const [isMove, setIsMove] = React.useState(false);
@@ -118,9 +117,9 @@ const LinkPanel = (props) => {
 
   const onDelPanel = useMemoizedFn((item, delAll = false) => {
     if (delAll) {
-      confirm({
+      modal.confirm({
         title: "确认删除全部?",
-        icon: <ExclamationCircleFilled />,
+        icon: <ConfirmDialogIcon />,
         content: "即将删除此分组下所有链接",
         okText: "确认",
         okType: "danger",

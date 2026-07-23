@@ -15,23 +15,18 @@ import PageLoading from "~/components/PageLoading";
 import styled from "styled-components";
 import useStores from "~/hooks/useStores";
 import { motion } from "framer-motion";
-import FirstScreen from '~/scenes/home/FirstScreen';
-import Nav from '~/scenes/home/Nav';
-import TabList from '~/scenes/Link/TabList';
+import { IconChevronUp } from "@tabler/icons-react";
+import FirstScreen from "~/scenes/home/FirstScreen";
+import Nav from "~/scenes/home/Nav";
+import TabList from "~/scenes/Link/TabList";
 
-export const headerHeight = 70;
+export const headerHeight = 56;
 const navWidth = 240;
 const tabListDrawerWidth = 240;
 
-
-const getWindowSize = () => {
-  const { innerWidth, innerHeight } = window;
-  return {
-    width: innerWidth,
-    height: innerHeight,
-  };
-};
-
+const EscMessageIcon = styled(IconChevronUp)`
+  color: var(--workspaceMuted);
+`;
 const Wrap = styled.div`
   width: 100%;
   height: 100dvh;
@@ -40,24 +35,22 @@ const Wrap = styled.div`
 
 const Main = styled(motion.main)`
   width: 100%;
-  height: calc(100vh - ${headerHeight}px);
-  background-color: var(--bgColor);
+  height: 100vh;
+  background: var(--workspaceBackdrop);
   position: relative;
-  // overflow-y: auto;
   z-index: 2;
 `;
 
 const Body = styled.div`
   width: 100%;
-  height: calc(100vh - ${headerHeight}px);
+  height: 100vh;
   overflow-y: auto;
+  position: relative;
 `;
 
 const RowWrap = styled(Row)`
-  min-height: calc(100vh - ${headerHeight}px);
+  min-height: 100vh;
 `;
-
-
 const homeAnimations = {
   show: {
     y: 0,
@@ -67,11 +60,10 @@ const homeAnimations = {
   }
 };
 
-const Home = (props) => {
-  const { tools, link, home, option } = useStores();
+const Home = () => {
+  const { tools, link, option } = useStores();
   const { pwKey, defaultOpenAdd, defauiltLink, rollingBack, homeGlassEffect } = option.item || {};
 
-  // const ref = useRef(null);
   const ref = React.useRef(null);
   const s = useScroll(ref);
   const isHovering = useHover(ref);
@@ -80,10 +72,7 @@ const Home = (props) => {
   const v = useReactive(
     {
       unlock: defauiltLink,
-      stickled: false,
-      showPanel: false,
       scrollTopNum: 0,
-      size: getWindowSize(),
       showTopIcon: false,
     },
     []
@@ -150,7 +139,10 @@ const Home = (props) => {
           }
         } else {
           if (v.scrollTopNum === 3) {
-            tools.messageApi.warning("请按 Esc 键返回首屏");
+            tools.messageApi.open({
+              content: "请按 Esc 键返回首屏",
+              icon: <EscMessageIcon size={18} stroke={1.7} />,
+            });
             setTimeout(() => {
               v.showTopIcon = true;
               setTimeout(() => {
@@ -159,9 +151,6 @@ const Home = (props) => {
             }, 300);
           }
         }
-
-        // v.unlock = false;
-        // tools.tabListDrawer = false;
       }
     },
     [s, isHovering, rollingBack]
@@ -285,7 +274,6 @@ const Home = (props) => {
         drawerStyle={{
           willChange: "transform",
         }}
-      // getContainer={false}
       >
         <React.Suspense fallback={<Spin />}>
           <TabList isShow={tools.tabListDrawer} />

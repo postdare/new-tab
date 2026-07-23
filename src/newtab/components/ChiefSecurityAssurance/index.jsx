@@ -5,14 +5,13 @@ import { ErrorBoundary } from "react-error-boundary";
 import { observer } from "mobx-react";
 import useStores from "~/hooks/useStores";
 import Wordmark from "~/components/Wordmark";
+import ConfirmDialogIcon from "~/components/ConfirmDialogIcon";
+import { getAppTheme } from "~/theme";
 
 const ErrWap = styled.div`
   max-width: 600px;
   margin: 0 auto;
   padding-block-start: 16vh;
-  svg {
-    color: red;
-  }
 `;
 
 const ErrMark = styled.div`
@@ -41,11 +40,7 @@ const ChiefSecurityAssurance = ({ children }) => {
     <ErrorBoundary fallbackRender={({ error }) => (
       <ErrWap>
         <ConfigProvider
-          theme={{
-            token: {
-              colorPrimary: '#5b6570',
-            },
-          }}
+          theme={getAppTheme(option.getSystemTheme() === 'dark')}
         >
           <Result
             status="error"
@@ -57,15 +52,17 @@ const ChiefSecurityAssurance = ({ children }) => {
               </ErrMark>
             }
             extra={[
-              <Button type="primary" onClick={() => window.location.reload()}>
+              <Button key="reload" type="primary" onClick={() => window.location.reload()}>
                 刷新页面
               </Button>,
               <Button key="buy" onClick={() => setShowErr(true)}>
                 错误信息
               </Button>,
               <Popconfirm
+                key="reset"
                 title="即将重置选项"
                 description="即将重置选项，上传的自定义壁纸会被清空。(仅设置项会被重置，其他数据会被保留)"
+                icon={<ConfirmDialogIcon embedded size={16} />}
                 onConfirm={confirm}
                 okText="确定"
                 cancelText="取消"

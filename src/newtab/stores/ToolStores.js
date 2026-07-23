@@ -56,10 +56,17 @@ export default class ToolsStores {
     this.rootStore = rootStore;
   }
 
-  /** 清空已存坐标并通知首屏重新排布 */
-  resetHomeLinkLayout() {
-    this.rootStore.option.setItem("homeLinkPositions", {});
-    this.homeLinkLayoutEpoch += 1;
+  /** 保存整理后的坐标并通知首屏应用；失败时恢复内存中的原坐标 */
+  async resetHomeLinkLayout(positions = {}) {
+    const { option } = this.rootStore;
+    const previous = _.cloneDeep(option.item.homeLinkPositions || {});
+    try {
+      await option.setItem("homeLinkPositions", positions, false);
+      this.homeLinkLayoutEpoch += 1;
+    } catch (error) {
+      option.item.homeLinkPositions = previous;
+      throw error;
+    }
   }
 
   setRightClickEvent(e, menu = []) {

@@ -1,8 +1,8 @@
 import React from "react";
 import { observer } from "mobx-react";
-import { Form, Checkbox, Select, Divider, Button, Modal } from "antd";
-import { ExclamationCircleOutlined } from "@ant-design/icons";
+import { App as AntApp, Form, Checkbox, Select, Divider, Button } from "antd";
 import useStores from "~/hooks/useStores";
+import ConfirmDialogIcon from "~/components/ConfirmDialogIcon";
 import UploadImg from "~/components/UploadImg";
 import { db } from "~/db";
 import { refreshFaviconForUrl } from "~/utils/favicon";
@@ -47,6 +47,7 @@ const homeLinkMaxNumOption = [
 
 const PreferencesLink = () => {
     const { option, tools } = useStores();
+    const { modal } = AntApp.useApp();
     const _option = _.cloneDeep(option.item);
     const { linkSpan, copyClose, defaultOpenAdd, defauiltLink, linkOpenSelf, homeLinkMaxNum, rollingBack, showHomeGroupTitle = true } = _option;
 
@@ -183,9 +184,9 @@ const PreferencesLink = () => {
     }, [tools]);
 
     const handleBatchFetchClick = React.useCallback(() => {
-        Modal.confirm({
+        modal.confirm({
             title: '确认批量获取图标？',
-            icon: <ExclamationCircleOutlined />,
+            icon: <ConfirmDialogIcon />,
             content: '此操作将重新获取所有抽屉链接的图标，可能需要较长时间。是否继续？',
             okText: '确认',
             okType: 'primary',
@@ -196,7 +197,7 @@ const PreferencesLink = () => {
                 return Promise.resolve();
             },
         });
-    }, [handleBatchFetchIcons]);
+    }, [handleBatchFetchIcons, modal]);
     return (
         <Form
             name="basic"
@@ -236,9 +237,9 @@ const PreferencesLink = () => {
                     type="default"
                     block
                     onClick={() => {
-                        Modal.confirm({
+                        modal.confirm({
                             title: '重置首屏分组布局？',
-                            icon: <ExclamationCircleOutlined />,
+                            icon: <ConfirmDialogIcon />,
                             content: '将清除已保存的分组位置，并按默认瀑布流重新排列。图标不会删除。',
                             okText: '重置',
                             okType: 'primary',
