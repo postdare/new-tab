@@ -13,25 +13,6 @@ const Space = styled.div`
     justify-content: space-between;
 `;
 
-const Info = styled.div`
-    display: flex;
-    color: var(--colorText);
-    font-size: 12px;
-    margin-top: 10px;
-    gap: 5px;
-    a {
-        font-size: 12px;
-        color: var(--PrimaryColor);
-    }
-    code {
-        background: var(--colorBgContainer);
-        border: 1px solid var(--colorBorder);
-        border-radius: 3px;
-        padding: 0 4px;
-        font-size: 11px;
-    }
-`;
-
 const GistIdText = styled.div`
     font-size: 11px;
     color: var(--colorTextSecondary);
@@ -132,10 +113,6 @@ const GitHubGist = () => {
                     {githubGistId ? (
                         <GistIdText>Gist ID: {githubGistId}</GistIdText>
                     ) : null}
-                    <Info>
-                        使用 GitHub Personal Access Token 同步，Token 需要 <code>gist</code> 权限。
-                        不填 Gist ID 将自动创建私密 Gist。
-                    </Info>
                 </Form.Item>
                 <Divider />
                 <Form.Item label="同步间隔时间" name="webdavTime">
