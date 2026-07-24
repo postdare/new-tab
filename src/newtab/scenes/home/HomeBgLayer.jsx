@@ -111,7 +111,7 @@ const HomeBgLayerComponent = (props) => {
       if (option.item.bgType === "bing") {
         list.push({ type: "divider" });
         list.push({
-          label: "Bing 壁纸下载",
+          label: "壁纸下载",
           icon: <IconDownload />,
           key: "downloadBing",
           onClick: () => {
@@ -119,7 +119,7 @@ const HomeBgLayerComponent = (props) => {
           },
         });
         list.push({
-          label: "随机换一张 Bing 壁纸",
+          label: "更换壁纸",
           icon: <IconRefresh />,
           key: "randomBing",
           onClick: () => {
