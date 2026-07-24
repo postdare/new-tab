@@ -159,7 +159,6 @@ const LogoWrap = styled.div`
   opacity: var(--homeLogoOpacity);
   cursor: pointer;
   background: var(--workspaceSidebar);
-  box-shadow: inset -1px 0 var(--workspaceSidebarEdge);
   transition: opacity 0.2s ease;
   pointer-events: auto;
 

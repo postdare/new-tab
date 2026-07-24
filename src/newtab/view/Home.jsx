@@ -36,7 +36,7 @@ const Wrap = styled.div`
 const Main = styled(motion.main)`
   width: 100%;
   height: 100vh;
-  background: var(--workspaceBackdrop);
+  background: var(--workspaceSidebar);
   position: relative;
   z-index: 2;
 `;
@@ -46,6 +46,10 @@ const Body = styled.div`
   height: 100vh;
   overflow-y: auto;
   position: relative;
+  box-sizing: border-box;
+  border-radius: 12px 0 0 12px;
+  background: var(--workspaceBackdrop);
+  box-shadow: inset 1px 0 var(--workspaceSidebarEdge);
 `;
 
 const RowWrap = styled(Row)`

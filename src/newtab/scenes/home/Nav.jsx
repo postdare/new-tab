@@ -51,7 +51,6 @@ const saveLActiveCache = (e) => {
 const NavWrap = styled.div`
   height: 100vh;
   background: var(--workspaceSidebar);
-  box-shadow: inset -1px 0 var(--workspaceSidebarEdge);
   margin: 0;
   padding: calc(${(props) => props.headerHeight}px + 12px) 8px 8px;
   box-sizing: border-box;
