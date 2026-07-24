@@ -3,7 +3,7 @@ import { observer } from "mobx-react";
 import { App as AntApp, message, ConfigProvider, theme } from "antd";
 import useStores from "~/hooks/useStores";
 import { useDocumentVisibility } from 'ahooks';
-import PublicModal from "~/scenes/Public/PublicModal";
+import PublicModal from "~/scenes/public/PublicModal";
 import styled, { createGlobalStyle } from "styled-components";
 import { IconCloudUpload, IconCloudDownload } from "@tabler/icons-react";
 import { saveFavicon } from "~/db";
