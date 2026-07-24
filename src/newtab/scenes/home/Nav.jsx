@@ -68,9 +68,12 @@ const NavTOP = styled.ul`
   background: transparent;
 
   .ant-divider {
-    height: 6px;
-    margin: 10px 0 !important;
+    width: auto;
+    min-width: 0;
+    height: 1px;
+    margin: 8px 12px !important;
     border: 0;
+    background: var(--workspaceBorder);
   }
 `;
 const NavBottom = styled.div`
@@ -355,7 +358,7 @@ const Nav = () => {
       <NavTOP className="scroll-container">
         {foo.map((v, k) => {
           if (v.type === "divider") {
-            return <Divider key={v.key} style={{ margin: "8px 0" }} />;
+            return <Divider key={v.key} />;
           }
           return (
             <NavLi
