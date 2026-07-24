@@ -5,6 +5,7 @@ import {
   estimateSize,
   fitAllPositions,
   fromAnchoredPositions,
+  getLayoutAnchor,
 } from "./homeLinkLayout.js";
 
 const groups = ["one", "two", "three"].map((timeKey) => ({
@@ -78,6 +79,29 @@ assert.equal(
   fitted.next.two.left - fitted.next.one.left,
   180,
   "视口收缩后不应分别压缩横向坐标"
+);
+
+const devtoolsViewport = { width: 1200, height: 600 };
+const devtoolsAnchor = getLayoutAnchor(false, devtoolsViewport);
+const devtoolsAbsolute = fromAnchoredPositions(
+  {
+    one: { left: -300, top: 0 },
+    two: { left: 100, top: 500 },
+  },
+  false,
+  devtoolsViewport
+);
+const devtoolsFitted = fitAllPositions(
+  devtoolsAbsolute,
+  groups.slice(0, 2),
+  true,
+  devtoolsViewport,
+  { fitVertical: false }
+);
+assert.equal(
+  devtoolsFitted.next.one.top,
+  devtoolsAnchor.top,
+  "F12 缩短视口后不应把书签簇顶到搜索框上方"
 );
 
 const anchored = computeAnchoredDefaultLayout(groups, true, false, {

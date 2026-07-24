@@ -5,7 +5,7 @@ import { ReactSortable } from "react-sortablejs";
 import { DndContext, useDraggable } from "@dnd-kit/core";
 import { restrictToParentElement } from "@dnd-kit/modifiers";
 import { IconGripHorizontal } from "@tabler/icons-react";
-import { useMemoizedFn, useDebounceFn } from "ahooks";
+import { useMemoizedFn } from "ahooks";
 import _ from "lodash";
 import useStores from "~/hooks/useStores";
 import useDebounce from "~/hooks/useDebounce";
@@ -59,7 +59,6 @@ const HomeLinkNav = styled.div`
   padding: 14px 16px;
   border-radius: 16px;
   border: 1px solid var(--homeNavBorderColor);
-  /* 毛玻璃必须在元素自身上，不要放 ::before，否则会出现半边糊半边不糊 */
   background-color: var(--homeNavBg);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
@@ -261,8 +260,33 @@ const HomeLinkGroupInner = (props) => {
   );
 };
 
-// memo 挡掉「拖一个分组时兄弟重渲染」；内部不在 render 期读 observable，无需 observer
 const HomeLinkGroup = React.memo(HomeLinkGroupInner, areGroupPropsEqual);
+
+const VIEWPORT_FIT_OPTIONS = { fitVertical: false };
+
+function useLiveViewportSize() {
+  const [viewport, setViewport] = React.useState(getViewportSize);
+
+  React.useEffect(() => {
+    let frameId = null;
+
+    const handleResize = () => {
+      if (frameId !== null) return;
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null;
+        setViewport(getViewportSize());
+      });
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+    };
+  }, []);
+
+  return viewport;
+}
 
 const HomeLinkListComponent = (props) => {
   const {
@@ -276,7 +300,7 @@ const HomeLinkListComponent = (props) => {
   const { option, tools, link } = useStores();
   const layoutEpoch = tools.homeLinkLayoutEpoch;
   const [activeKey, setActiveKey] = React.useState(null);
-  const [viewport, setViewport] = React.useState(getViewportSize);
+  const viewport = useLiveViewportSize();
   const [positions, setPositions] = React.useState(() =>
     toPlainPositions(option.item.homeLinkPositions)
   );
@@ -365,35 +389,20 @@ const HomeLinkListComponent = (props) => {
     viewport,
   ]);
 
-  // F12/窗口缩放只更新临时渲染视口，不覆盖用户保存的分组坐标。
-  const { run: updateViewportOnResize } = useDebounceFn(
-    () => {
-      setViewport(getViewportSize());
-    },
-    { wait: 150 }
-  );
-
-  React.useEffect(() => {
-    window.addEventListener("resize", updateViewportOnResize);
-    return () => window.removeEventListener("resize", updateViewportOnResize);
-  }, [updateViewportOnResize]);
-
-  const visiblePositions = React.useMemo(
-    () => {
-      const absolute = fromAnchoredPositions(
-        positions,
-        isSoBarDown,
-        viewport
-      );
-      return fitAllPositions(
-        absolute,
-        validGroups,
-        showGroupTitle,
-        viewport
-      ).next;
-    },
-    [isSoBarDown, positions, showGroupTitle, validGroups, viewport]
-  );
+  const visiblePositions = React.useMemo(() => {
+    const absolute = fromAnchoredPositions(
+      positions,
+      isSoBarDown,
+      viewport
+    );
+    return fitAllPositions(
+      absolute,
+      validGroups,
+      showGroupTitle,
+      viewport,
+      VIEWPORT_FIT_OPTIONS
+    ).next;
+  }, [isSoBarDown, positions, showGroupTitle, validGroups, viewport]);
 
   const handleDragStart = useMemoizedFn((event) => {
     const id = String(event.active?.id || "");

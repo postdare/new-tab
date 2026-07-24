@@ -1,5 +1,3 @@
-/** 首屏分组自由布局：坐标估算与默认排布（纯函数） */
-
 export const SNAP = 10;
 export const ICON_SLOT = 58;
 export const GAP = 15;
@@ -54,7 +52,6 @@ function mapPositions(positions, transform) {
   return mapped;
 }
 
-/** 将视口绝对坐标转换为相对布局锚点的坐标。 */
 export function toAnchoredPositions(positions, isSoBarDown, viewport) {
   const anchor = getLayoutAnchor(isSoBarDown, viewport);
   return mapPositions(positions, (position) => {
@@ -65,7 +62,6 @@ export function toAnchoredPositions(positions, isSoBarDown, viewport) {
   });
 }
 
-/** 将相对布局锚点的坐标转换为当前视口坐标。 */
 export function fromAnchoredPositions(positions, isSoBarDown, viewport) {
   const anchor = getLayoutAnchor(isSoBarDown, viewport);
   return mapPositions(positions, (position) => {
@@ -76,7 +72,6 @@ export function fromAnchoredPositions(positions, isSoBarDown, viewport) {
   });
 }
 
-/** 过滤无法在首屏渲染的空分组。 */
 export function filterRenderableGroups(groups) {
   if (!Array.isArray(groups)) return [];
   return groups.filter(
@@ -230,7 +225,6 @@ export function computeAnchoredDefaultLayout(
   };
 }
 
-/** 已有部分坐标时，给新分组找不重叠的起点 */
 export function placeNewGroups(groups, existing) {
   if (!groups.length) return {};
   let anchorLeft = -80;
@@ -258,7 +252,6 @@ export function placeNewGroups(groups, existing) {
   return positions;
 }
 
-/** 规范化/清洗坐标表，过滤非法项 */
 export function toPlainPositions(raw) {
   if (!raw || typeof raw !== "object") return {};
   const plain = {};
@@ -271,11 +264,6 @@ export function toPlainPositions(raw) {
   return plain;
 }
 
-/**
- * 一次扫描 link.list，建立首屏分组 timeKey → title 映射
- * @param {Array} linkList
- * @param {string[]} timeKeys
- */
 export function buildTitleMap(linkList, timeKeys) {
   if (!timeKeys?.length || !linkList?.length) return {};
   const want = new Set(timeKeys);
@@ -289,7 +277,6 @@ export function buildTitleMap(linkList, timeKeys) {
   return map;
 }
 
-/** 将单个坐标限制在视口内（卡片超出视口时贴边，尽量完整可见） */
 export function clampPosition(left, top, cardW = 120, cardH = 100) {
   const { width, height } = getViewportSize();
   const maxLeft = Math.max(VIEW_MARGIN, width - cardW - VIEW_MARGIN);
@@ -319,15 +306,15 @@ function getAxisShift(min, max, viewportSize) {
 }
 
 /**
- * 将整个分组簇等量平移到当前视口内，不改变分组之间的相对位置。
- * 只用于渲染临时视口，不能覆盖用户保存的坐标。
+ * 按指定轴将分组簇等量平移到当前视口内，不改变分组间的相对位置。
  * @returns {{ next: object, changed: boolean, overflow: boolean }}
  */
 export function fitAllPositions(
   positions,
   groups,
   showGroupTitle,
-  viewport
+  viewport,
+  { fitHorizontal = true, fitVertical = true } = {}
 ) {
   if (!positions || typeof positions !== "object") {
     return { next: {}, changed: false, overflow: false };
@@ -350,8 +337,12 @@ export function fitAllPositions(
   }
 
   const { width, height } = getViewportSize(viewport);
-  const dx = Math.round(getAxisShift(minLeft, maxRight, width));
-  const dy = Math.round(getAxisShift(minTop, maxBottom, height));
+  const dx = fitHorizontal
+    ? Math.round(getAxisShift(minLeft, maxRight, width))
+    : 0;
+  const dy = fitVertical
+    ? Math.round(getAxisShift(minTop, maxBottom, height))
+    : 0;
 
   if (dx !== 0 || dy !== 0) {
     Object.keys(next).forEach((key) => {
