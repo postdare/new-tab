@@ -4,6 +4,7 @@ import { observer } from "mobx-react";
 import { theme, Button, Tooltip, Badge } from "antd";
 import { useLocation } from "react-router-dom";
 import useStores from "~/hooks/useStores";
+import { getBgFitStyles, HOME_ENTER } from "~/utils";
 import { IconCirclePlus, IconChevronUp } from "@tabler/icons-react";
 import { motion, useAnimationControls } from "framer-motion";
 import { useUpdateEffect, useHover, useCreation } from "ahooks";
@@ -33,35 +34,9 @@ const FirstScreenImgBg = styled(motion.div)`
     right: 0;
     bottom: 0;
     background-image: ${(props) => props.bg1Url ? `url(${props.bg1Url})` : 'none'};
-    background-repeat: ${(props) => {
-      switch (props.bg1ImageFit) {
-        case 'center':
-          return 'repeat';
-        default:
-          return 'no-repeat';
-      }
-    }};
-    background-position: ${(props) => {
-      switch (props.bg1ImageFit) {
-        case 'center':
-          return 'center top';
-        default:
-          return 'center center';
-      }
-    }};
-    background-size: ${(props) => {
-      switch (props.bg1ImageFit) {
-        case 'width100':
-          return '100% auto';
-        case 'height100':
-          return 'auto 100%';
-        case 'center':
-          return 'auto';
-        case 'cover':
-        default:
-          return 'cover';
-      }
-    }};
+    background-repeat: ${(props) => getBgFitStyles(props.bg1ImageFit).repeat};
+    background-position: ${(props) => getBgFitStyles(props.bg1ImageFit).position};
+    background-size: ${(props) => getBgFitStyles(props.bg1ImageFit).size};
     opacity: ${(props) => props.showBg1 ? 'var(--homeImgOpacity)' : '0'};
     transition: opacity 0.3s ease;
     filter: ${(props) => props.bg1Blur ? 'blur(10px)' : 'none'};
@@ -75,35 +50,9 @@ const FirstScreenImgBg = styled(motion.div)`
     right: 0;
     bottom: 0;
     background-image: ${(props) => props.bg2Url ? `url(${props.bg2Url})` : 'none'};
-    background-repeat: ${(props) => {
-      switch (props.bg2ImageFit) {
-        case 'center':
-          return 'repeat';
-        default:
-          return 'no-repeat';
-      }
-    }};
-    background-position: ${(props) => {
-      switch (props.bg2ImageFit) {
-        case 'center':
-          return 'center top';
-        default:
-          return 'center center';
-      }
-    }};
-    background-size: ${(props) => {
-      switch (props.bg2ImageFit) {
-        case 'width100':
-          return '100% auto';
-        case 'height100':
-          return 'auto 100%';
-        case 'center':
-          return 'auto';
-        case 'cover':
-        default:
-          return 'cover';
-      }
-    }};
+    background-repeat: ${(props) => getBgFitStyles(props.bg2ImageFit).repeat};
+    background-position: ${(props) => getBgFitStyles(props.bg2ImageFit).position};
+    background-size: ${(props) => getBgFitStyles(props.bg2ImageFit).size};
     opacity: ${(props) => props.showBg2 ? 'var(--homeImgOpacity)' : '0'};
     transition: opacity 0.16s ease, filter 0.16s ease;
     filter: ${(props) => {
@@ -230,7 +179,12 @@ const clockAnimations = {
     opacity: 1,
     scale: 1,
     y: 0,
-    transition: { duration: 0.3, ease: "backIn" },
+    // 与壁纸入场同步、略微滞后，避免先于壁纸出现
+    transition: {
+      duration: HOME_ENTER.duration,
+      ease: HOME_ENTER.ease,
+      delay: HOME_ENTER.contentDelay,
+    },
   },
   hidden: {
     opacity: 0,
@@ -306,7 +260,6 @@ const FirstScreen = (props) => {
     homeLinkMaxNum = 14,
     bgImageFit = "cover",
     bg2ImageFit = "cover",
-    homeGlassEffect,
     showHomeGroupTitle = true,
   } = option.item;
 
@@ -353,11 +306,23 @@ const FirstScreen = (props) => {
         animate={{
           opacity: unlock ? 0 : 1,
         }}
-        transition={{ duration: 0.6, ease: "backIn" }}
+        transition={{ duration: HOME_ENTER.duration, ease: HOME_ENTER.ease }}
       />
     )
 
   }, [bgType, bgColor, actualBg1ImageFit, actualBg2ImageFit, bg1DisplayUrl, home.bg2Url, home.isBg2, unlock])
+
+  // 毛玻璃卡片用的壁纸 CSS 变量：挂在 HomeLinkList 根节点，
+  // 卡片内部通过 var() 消费，壁纸变化（如缩略图→大图）不会重渲染各卡片
+  const frostStyle = useCreation(() => {
+    const fit = getBgFitStyles(actualBg1ImageFit);
+    return {
+      "--frost-bg-image": bg1DisplayUrl ? `url(${bg1DisplayUrl})` : "none",
+      "--frost-bg-repeat": fit.repeat,
+      "--frost-bg-position": fit.position,
+      "--frost-bg-size": fit.size,
+    };
+  }, [bg1DisplayUrl, actualBg1ImageFit]);
 
   // 智能判断第一壁纸的展示方式
   React.useEffect(() => {
@@ -387,8 +352,13 @@ const FirstScreen = (props) => {
     }
   }, [home]);
 
+  // 是否进入过管理页：决定搜索框重新挂载时用"快速出现"（新标签页首开）
+  // 还是"与壁纸同步淡入"（从管理页返回）
+  const hasLeftHomeRef = React.useRef(false);
+
   useUpdateEffect(() => {
     if (unlock) {
+      hasLeftHomeRef.current = true;
       setShowHomeLink(false);
       clockWrapController.start("hidden");
     } else {
@@ -398,7 +368,12 @@ const FirstScreen = (props) => {
   }, [unlock]);
 
   React.useEffect(() => {
-    if (!unlock && effectiveKeys.length && !home.isBg2) {
+    if (unlock) {
+      // 管理页期间保持窗格挂载（stickled 状态下 opacity 为 0 不可见），
+      // 卸载再重挂会让返回首页时的透明度过渡失效；返回时会重新拉取数据
+      return;
+    }
+    if (effectiveKeys.length && !home.isBg2) {
       Promise.all(
         effectiveKeys.map((key) =>
           link.getLinkByParentId(key).then((childRes) => {
@@ -529,12 +504,17 @@ const FirstScreen = (props) => {
         <SearchWrap
           initial={{ ...searchPosition, opacity: 0 }}
           animate={{ ...searchPosition, opacity: 1 }}
-          transition={{ duration: 0.16, ease: "easeOut" }}
+          transition={
+            hasLeftHomeRef.current
+              ? {
+                  duration: HOME_ENTER.duration,
+                  ease: HOME_ENTER.ease,
+                  delay: HOME_ENTER.contentDelay,
+                }
+              : { duration: 0.16, ease: "easeOut" }
+          }
         >
-          <HomeSearch
-            stickled={false}
-            className={homeGlassEffect ? "glass-card" : ""}
-          />
+          <HomeSearch stickled={false} />
         </SearchWrap>
       ) : null}
       <HomeLinkList
@@ -542,8 +522,8 @@ const FirstScreen = (props) => {
         isSoBarDown={isSoBarDown}
         stickled={unlock}
         showHomeLink={showHomeLink}
-        glassMode={homeGlassEffect}
         showGroupTitle={showHomeGroupTitle}
+        frostStyle={frostStyle}
       />
       <HomeBgLayer
         stickled={unlock}
