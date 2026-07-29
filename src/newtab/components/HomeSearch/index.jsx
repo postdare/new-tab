@@ -35,8 +35,9 @@ const SearchWrap = styled.div`
   opacity: 1;
   transition: box-shadow 0.3s ease-in-out, opacity 0.3s ease-in-out;
   &.hidden {
-    opacity: 0.3;
+    opacity: 0;
     box-shadow: none;
+    pointer-events: none;
   }
 `;
 const SearchInput = styled.div`

@@ -4,6 +4,7 @@ import {
   makeObservable,
 } from "mobx";
 import { db } from "~/db";
+import Storage from "~/utils/storage";
 import { handleError } from "~/utils/errorHandler";
 import _ from "lodash";
 import BackgroundSyncProvider from "./providers/BackgroundSyncProvider";
@@ -410,6 +411,16 @@ export default class DataStores {
         }
       });
 
+      // 自定义背景图片存储在 cache 表，而同步快照会跳过 cache。
+      // importSnapshot 会清空本地数据库，因此先暂存 Blob，导入后恢复。
+      const localBackgroundBlobs = {};
+      for (const key of ["bgBase64", "bg2Base64"]) {
+        const blob = await Storage.getBlob(`${key}_blob`).catch(() => null);
+        if (blob) {
+          localBackgroundBlobs[key] = blob;
+        }
+      }
+
       const data = await this.readFile(this.dir + SYNC_JSON_NAME);
 
       if (!data || data.trim() === '') {
@@ -421,6 +432,11 @@ export default class DataStores {
       const { databaseVersion } = parseSnapshot(text);
 
       await importSnapshot(blob);
+
+      // 快照不包含 cache，因此恢复本地自定义背景图片。
+      for (const [key, imageBlob] of Object.entries(localBackgroundBlobs)) {
+        await Storage.setBlob(`${key}_blob`, imageBlob);
+      }
 
       // 必须等本地保留项写回 db 后再执行 resetChromeSaveOption，避免它读到导入前的旧值
       await option.setItem('webdavVersion', parseInt(webdavVersion));

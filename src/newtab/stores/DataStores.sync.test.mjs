@@ -29,6 +29,10 @@ const result = await build({
           path: "error-handler",
           namespace: "sync-test",
         }));
+        builder.onResolve({ filter: /^~\/utils\/storage$/ }, () => ({
+          path: "storage",
+          namespace: "sync-test",
+        }));
         builder.onResolve(
           { filter: /^\.\/providers\/BackgroundSyncProvider$/ },
           () => ({ path: "provider", namespace: "sync-test" })
@@ -48,6 +52,17 @@ const result = await build({
           }
           if (args.path === "error-handler") {
             return { contents: "export function handleError() {}" };
+          }
+          if (args.path === "storage") {
+            return {
+              contents: `
+                const blobs = new Map();
+                export default {
+                  async getBlob(key) { return blobs.get(key) || null; },
+                  async setBlob(key, blob) { blobs.set(key, blob); },
+                };
+              `,
+            };
           }
           return {
             contents: `
