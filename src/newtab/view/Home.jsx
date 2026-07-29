@@ -66,7 +66,7 @@ const homeAnimations = {
 
 const Home = () => {
   const { tools, link, option } = useStores();
-  const { pwKey, defaultOpenAdd, defauiltLink, rollingBack, homeGlassEffect } = option.item || {};
+  const { pwKey, defaultOpenAdd, defauiltLink, rollingBack } = option.item || {};
 
   const ref = React.useRef(null);
   const s = useScroll(ref);
@@ -210,7 +210,7 @@ const Home = () => {
   }, [onwheel]);
 
   return (
-    <Wrap className={`main-wrap sn-bg-wrap ${homeGlassEffect ? 'glass-home' : ''}`}>
+    <Wrap className="main-wrap sn-bg-wrap">
       <FirstScreen
         navWidth={navWidth}
         headerHeight={headerHeight}

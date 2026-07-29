@@ -113,9 +113,8 @@ const updateOptions = {
     bgImageFit: 'cover',
     bg2ImageFit: 'cover',
   },
-  15: {
-    homeGlassEffect: false,
-  },
+  // 15 曾引入 homeGlassEffect，该配置已随 glass-card 功能移除
+  15: {},
   16: {
     homeLinkTimeKeys: [],
   },

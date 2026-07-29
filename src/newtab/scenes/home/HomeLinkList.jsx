@@ -10,7 +10,7 @@ import _ from "lodash";
 import useStores from "~/hooks/useStores";
 import useDebounce from "~/hooks/useDebounce";
 import LinkItemSmall from "~/scenes/Link/LinkItemSmall";
-import { filterLinkList } from "~/utils";
+import { filterLinkList, HOME_ENTER } from "~/utils";
 import {
   DRAG_ID_PREFIX,
   buildTitleMap,
@@ -31,6 +31,14 @@ const HomeLinkOuter = styled.div`
   position: absolute;
   inset: 0;
   z-index: ${(props) => (props.stickled ? "-1" : "50")};
+  /* stickled 时窗格保持挂载（卸载重挂会让下面的过渡失效），
+     用 visibility 而非仅 opacity：一并屏蔽命中测试、Tab 焦点与无障碍树。
+     CSS 对 visibility 过渡有特殊规则——淡出期间保持 visible，淡入时立即可见。
+     时长与缓动同步自壁纸入场，否则返回首页时窗格会先于壁纸出现。 */
+  opacity: ${(props) => (props.stickled ? 0 : 1)};
+  visibility: ${(props) => (props.stickled ? "hidden" : "visible")};
+  transition: opacity ${HOME_ENTER.duration}s ${HOME_ENTER.cssEase},
+    visibility ${HOME_ENTER.duration}s ${HOME_ENTER.cssEase};
   overflow: hidden;
   pointer-events: none;
   -webkit-user-select: none;
@@ -39,29 +47,20 @@ const HomeLinkOuter = styled.div`
   user-select: none;
 `;
 
+/* 定位、拖拽位移、z-index 全部走内联 style（见渲染处）：
+   拖拽时每帧变化的值放进 styled 模板会导致 styled-components 每帧生成新 class */
 const GroupShell = styled.div`
   position: absolute;
-  left: ${(props) => props.$left}px;
-  top: ${(props) => props.$top}px;
-  transform: translate3d(
-    ${(props) => props.$tx || 0}px,
-    ${(props) => props.$ty || 0}px,
-    0
-  );
-  z-index: ${(props) => props.$zIndex || 1};
   pointer-events: auto;
   width: fit-content;
-  will-change: ${(props) => (props.$dragging ? "transform" : "auto")};
 `;
 
 const HomeLinkNav = styled.div`
+  position: relative;
   width: fit-content;
   padding: 14px 16px;
   border-radius: 16px;
   border: 1px solid var(--homeNavBorderColor);
-  background-color: var(--homeNavBg);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
   &:hover {
@@ -76,6 +75,45 @@ const HomeLinkNav = styled.div`
     .home-link-drag-handle {
       opacity: 1;
     }
+  }
+`;
+
+/* 毛玻璃改为"预模糊壁纸对齐"实现：不用 backdrop-filter（Chromium 分块光栅化
+   会在其他元素动画/重绘时在卡片上闪现横向接缝），而是在卡片内放一个与壁纸
+   同尺寸同 fit 模式的图层（::before），按卡片坐标反向偏移对齐后整体模糊，
+   ::after 叠加着色。图层内容静态，光栅化一次后不会再因页面其他部分重绘而
+   重新采样。壁纸的 url/fit 由 FirstScreen 以 --frost-bg-* CSS 变量提供
+   （挂在 HomeLinkOuter 上）；偏移量 --frost-shift 由卡片渲染处内联提供。
+   卡片只出现在第一壁纸上（bg2 预览时分组会被清空），故无需处理 bg2。 */
+const Frost = styled.div`
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+
+  &::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100vw;
+    height: 100vh;
+    transform: var(--frost-shift, none);
+    background-image: var(--frost-bg-image, none);
+    background-repeat: var(--frost-bg-repeat, no-repeat);
+    background-position: var(--frost-bg-position, center center);
+    background-size: var(--frost-bg-size, cover);
+    opacity: var(--homeImgOpacity, 1);
+    filter: saturate(180%) blur(20px);
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-color: var(--homeNavBg);
   }
 `;
 
@@ -135,7 +173,6 @@ function areGroupPropsEqual(prev, next) {
     prev.title === next.title &&
     prev.isSoBarDown === next.isSoBarDown &&
     prev.showHomeLink === next.showHomeLink &&
-    prev.glassMode === next.glassMode &&
     prev.showGroupTitle === next.showGroupTitle &&
     prev.group?.timeKey === next.group?.timeKey &&
     prev.group?.links === next.group?.links
@@ -148,7 +185,6 @@ const HomeLinkGroupInner = (props) => {
     title,
     isSoBarDown,
     showHomeLink,
-    glassMode,
     showGroupTitle,
     left,
     top,
@@ -204,22 +240,29 @@ const HomeLinkGroupInner = (props) => {
 
   const cols = Math.min(linkList.length, 4);
   const showTitle = showGroupTitle && title && showHomeLink;
+  const tx = transform?.x || 0;
+  const ty = transform?.y || 0;
 
   return (
     <GroupShell
       ref={setNodeRef}
       {...attributes}
-      $left={left}
-      $top={top}
-      $tx={transform?.x || 0}
-      $ty={transform?.y || 0}
-      $zIndex={isDragging ? 100 : zIndex}
-      $dragging={isDragging}
+      style={{
+        left,
+        top,
+        transform: `translate3d(${tx}px, ${ty}px, 0)`,
+        zIndex: isDragging ? 100 : zIndex,
+        willChange: isDragging ? "transform" : "auto",
+      }}
     >
       <HomeLinkNav
         className={isDragging ? "dragging" : ""}
-        style={{ "--home-link-cols": cols }}
+        style={{
+          "--home-link-cols": cols,
+          "--frost-shift": `translate(${-(left + tx)}px, ${-(top + ty)}px)`,
+        }}
       >
+        <Frost />
         <DragHandle
           className="home-link-drag-handle"
           {...listeners}
@@ -246,11 +289,7 @@ const HomeLinkGroupInner = (props) => {
                   key={v.timeKey}
                   style={{ pointerEvents: isDragging ? "none" : "auto" }}
                 >
-                  <LinkItemSmall
-                    isSoBarDown={isSoBarDown}
-                    {...v}
-                    className={glassMode ? "glass-card" : ""}
-                  />
+                  <LinkItemSmall isSoBarDown={isSoBarDown} {...v} />
                 </div>
               );
             })}
@@ -294,8 +333,8 @@ const HomeLinkListComponent = (props) => {
     isSoBarDown,
     stickled,
     showHomeLink,
-    glassMode,
     showGroupTitle = true,
+    frostStyle,
   } = props;
   const { option, tools, link } = useStores();
   const layoutEpoch = tools.homeLinkLayoutEpoch;
@@ -449,7 +488,7 @@ const HomeLinkListComponent = (props) => {
   }
 
   return (
-    <HomeLinkOuter stickled={stickled}>
+    <HomeLinkOuter stickled={stickled} style={frostStyle}>
       <DndContext
         autoScroll={false}
         modifiers={[restrictToParentElement]}
@@ -468,7 +507,6 @@ const HomeLinkListComponent = (props) => {
               title={titleByKey[group.timeKey]}
               isSoBarDown={isSoBarDown}
               showHomeLink={showHomeLink}
-              glassMode={glassMode}
               showGroupTitle={showGroupTitle}
               left={pos.left}
               top={pos.top}

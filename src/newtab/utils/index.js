@@ -334,3 +334,25 @@ export function openUrl(url, options = {}) {
     window.location.href = url;
   }
 }
+
+// 首屏入场编排：壁纸、窗格、时钟、搜索框共用同一时长与缓动，
+// 任一处单独改动都会让元素先于壁纸弹出，返回首页时显得割裂。
+export const HOME_ENTER = {
+  duration: 0.6,
+  ease: "backIn",
+  // 上面 backIn 缓动的 CSS 等价写法（供 styled-components 使用）
+  cssEase: "cubic-bezier(0.36, 0, 0.66, -0.56)",
+  // 时钟与搜索框相对壁纸的滞后
+  contentDelay: 0.1,
+};
+
+// 壁纸 fit 模式 → background CSS 映射。
+// FirstScreen 的壁纸层与 HomeLinkList 的卡片毛玻璃层共用；
+// 毛玻璃的"预模糊壁纸对齐"依赖两处渲染完全一致，改动必须同步生效。
+export const getBgFitStyles = (fit) => ({
+  repeat: fit === "center" ? "repeat" : "no-repeat",
+  position: fit === "center" ? "center top" : "center center",
+  size:
+    { width100: "100% auto", height100: "auto 100%", center: "auto" }[fit] ||
+    "cover",
+});
