@@ -11,6 +11,7 @@ import {
   IconCloudRain,
   IconCloudSnow,
   IconCloudStorm,
+  IconExternalLink,
 } from "@tabler/icons-react";
 import { formatAge } from "~/utils/timeText";
 import WidgetCard, { scheme } from "../WidgetCard";
@@ -105,6 +106,26 @@ const Skeleton = styled.div`
 const Spacer = styled.div`
   flex: 1;
 `;
+
+const LinkIcon = styled.a`
+  display: flex;
+  align-items: center;
+  color: inherit;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+
+  &:hover {
+    color: inherit;
+    opacity: 1 !important;
+  }
+`;
+
+function weatherUrl(place) {
+  if (!place) return "https://www.windy.com";
+  const lat = place.latitude.toFixed(4);
+  const lon = place.longitude.toFixed(4);
+  return `https://www.windy.com/${lat}/${lon}?${lat},${lon},11`;
+}
 
 /* 未来几天：中卡以下放不下，只有大卡画 */
 const Forecast = styled.div`
@@ -282,6 +303,19 @@ const WeatherWidget = (props) => {
       position={position}
       onClick={onRefresh}
       tip={tip}
+      action={
+        <LinkIcon
+          className="widget-head-action"
+          href={weatherUrl(place)}
+          target="_blank"
+          rel="noreferrer"
+          title={place ? `在 Windy 查看 ${place.name} 天气` : "打开天气网站"}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <IconExternalLink size={13} stroke={1.8} />
+        </LinkIcon>
+      }
     >
       <Row>
         {renderValue()}
