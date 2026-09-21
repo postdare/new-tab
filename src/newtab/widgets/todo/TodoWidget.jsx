@@ -13,9 +13,13 @@ import { widgetSize, WIDGET_METRICS as M } from "../sizes";
 /* 列表行的尺度。从 M 推导而不是写死，改了全局 SCALE 这里跟着走 */
 const ROW_H = 18;
 const ROW_GAP = 3;
-const INPUT_H = 20;
+const INPUT_H = 22;
 const TOP_GAP = 8;
 const BOX = 13;
+
+/* 列表字号:本地调大一档。全局 metaFontSize 经 SCALE 后落到 10px，待办这种
+   「一行一项」的卡片上太挤了,这里单独覆盖,只影响 todo 卡本身 */
+const META_FONT_SIZE = 13;
 
 /** 一档能放下几行：按卡片实际高度算，加尺寸档时不用回来改数字 */
 function listCapacity(size) {
@@ -71,9 +75,9 @@ const Row = styled.div`
   display: flex;
   align-items: center;
   gap: 7px;
-  height: ${ROW_H}px;
-  font-size: ${M.metaFontSize}px;
-  line-height: 1;
+  min-height: ${ROW_H}px;
+  font-size: ${META_FONT_SIZE}px;
+  line-height: 1.3;
 
   &:hover .todo-remove {
     opacity: 0.5;
@@ -100,9 +104,9 @@ const Box = styled.button`
 const Text = styled.span`
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  /* 装不下的英文/中文混排整行折到下一行,而不被单行省略号喀掉一半 */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   cursor: text;
   opacity: ${(props) => (props.$done ? 0.45 : 0.9)};
   text-decoration: ${(props) => (props.$done ? "line-through" : "none")};
@@ -164,7 +168,7 @@ const More = styled.button`
   border: 0;
   background: none;
   color: inherit;
-  font-size: ${M.metaFontSize}px;
+  font-size: ${META_FONT_SIZE}px;
   opacity: 0.5;
   cursor: pointer;
 
@@ -191,7 +195,7 @@ const Input = styled.input`
   border-top: 1px solid ${(props) => props.$scheme.border};
   background: none;
   color: inherit;
-  font-size: ${M.metaFontSize}px;
+  font-size: ${META_FONT_SIZE}px;
   outline: none;
 
   &::placeholder {
@@ -211,7 +215,7 @@ const Count = styled.div`
 
 const Peek = styled.div`
   margin-top: ${M.metaGap}px;
-  font-size: ${M.metaFontSize}px;
+  font-size: ${META_FONT_SIZE}px;
   line-height: ${M.metaLineHeight};
   opacity: 0.78;
   overflow: hidden;
@@ -414,12 +418,21 @@ const TodoWidget = observer((props) => {
       </List>
       <Input
         $scheme={palette}
+        autoComplete="off"
+        spellCheck={false}
         value={draft}
         placeholder="添加一项…"
         onPointerDown={stopDrag}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") add();
+          /* IME 选词中的回车(commit 当前候选),不要顺便当成「确认添加」 */
+          if (
+            e.key === "Enter" &&
+            !e.nativeEvent.isComposing &&
+            e.keyCode !== 229
+          ) {
+            add();
+          }
         }}
       />
     </WidgetCard>
