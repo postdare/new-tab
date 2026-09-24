@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { build } from "esbuild";
 
+const srcDir = new URL("../..", import.meta.url).pathname;
+
 const control = {
   blockNextWrite: false,
   busyLocks: 0,
@@ -10,6 +12,8 @@ const control = {
   writes: [],
 };
 globalThis.__dataStoresSyncTest = control;
+// dexie-export-import 在模块顶层读取 self
+globalThis.self ??= globalThis;
 
 const result = await build({
   entryPoints: [new URL("./DataStores.js", import.meta.url).pathname],
@@ -29,13 +33,16 @@ const result = await build({
           path: "error-handler",
           namespace: "sync-test",
         }));
-        builder.onResolve({ filter: /^~\/utils\/storage$/ }, () => ({
-          path: "storage",
-          namespace: "sync-test",
-        }));
         builder.onResolve(
           { filter: /^\.\/providers\/BackgroundSyncProvider$/ },
           () => ({ path: "provider", namespace: "sync-test" })
+        );
+        // 其余 ~ / @ 别名按 vite.config.js 映射到真实文件
+        builder.onResolve({ filter: /^[~@]\// }, (args) =>
+          builder.resolve(
+            srcDir + (args.path.startsWith("~") ? "newtab" : "") + args.path.slice(1),
+            { kind: args.kind, resolveDir: args.resolveDir }
+          )
         );
         builder.onLoad({ filter: /.*/, namespace: "sync-test" }, (args) => {
           if (args.path === "db") {
@@ -52,17 +59,6 @@ const result = await build({
           }
           if (args.path === "error-handler") {
             return { contents: "export function handleError() {}" };
-          }
-          if (args.path === "storage") {
-            return {
-              contents: `
-                const blobs = new Map();
-                export default {
-                  async getBlob(key) { return blobs.get(key) || null; },
-                  async setBlob(key, blob) { blobs.set(key, blob); },
-                };
-              `,
-            };
           }
           return {
             contents: `
