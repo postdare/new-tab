@@ -205,6 +205,8 @@ const QuotaWidget = observer((props) => {
   const unauthorized = error?.type === "unauthorized";
   const view = data ? provider.format(data, instance.size) : null;
   const age = unauthorized ? null : formatAge(updatedAt);
+  const ageText =
+    error && data ? ["更新失败", age].filter(Boolean).join(" · ") : age;
 
   const bars = showsBars(instance.size) ? view?.bars : null;
 
@@ -277,7 +279,7 @@ const QuotaWidget = observer((props) => {
       {view?.meta?.length
         ? view.meta.map((line) => <Meta key={line}>{line}</Meta>)
         : null}
-      {age ? <Age>{age}</Age> : null}
+      {ageText ? <Age>{ageText}</Age> : null}
     </WidgetCard>
   );
 });
