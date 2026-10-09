@@ -12,8 +12,11 @@ const CACHE_TTL_MS = 15 * 60 * 1000;
  * unauthorized | timeout | http | network
  * headers 可覆盖默认鉴权头：Antix 一类走 cookie 的 provider 传
  * { Cookie: "antix_session=" }，值会自动拼上密钥；此时 apiKey 本身不进 Bearer。
+ * statusReason(status, body) 把 401/403 的响应体翻成人话（返回
+ * { message, short? }）：同一个状态码背后可能是不同的病因——opencode 的
+ * 403 就是「工作区没有 Go 订阅」，报「密钥失效」会把人引去换密钥。
  */
-export async function requestJson(url, apiKey, headers) {
+export async function requestJson(url, apiKey, headers, statusReason) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -39,8 +42,16 @@ export async function requestJson(url, apiKey, headers) {
   }
 
   if (response.status === 401 || response.status === 403) {
-    const error = new Error("密钥失效");
+    const reason = statusReason
+      ? statusReason(
+          response.status,
+          await response.json().catch(() => null)
+        )
+      : null;
+    const error = new Error(reason?.message || "密钥失效");
     error.type = "unauthorized";
+    /* 卡片上的短标签：状态行塞不下整句话 */
+    error.short = reason?.short || null;
     throw error;
   }
 
@@ -96,6 +107,8 @@ export async function loadWithCache(cacheKey, fetcher, { force = false } = {}) {
     const error = {
       type: err?.type || "network",
       message: err?.message || "请求失败",
+      /* 卡片状态行上的短标签，由 provider 的 statusReason 给出 */
+      short: err?.short || null,
     };
     if (error.type === "unauthorized") {
       return { data: null, updatedAt: null, error };
@@ -113,7 +126,7 @@ export async function loadWithCache(cacheKey, fetcher, { force = false } = {}) {
  * 一个额度 provider 的取数三件套。各 provider 只需提供端点与 normalize，
  * 请求、超时、错误分型、缓存策略全部落在这里。
  */
-export function defineProvider({ cacheKey, url, normalize, headers }) {
+export function defineProvider({ cacheKey, url, normalize, headers, statusReason }) {
   const verify = async (apiKey) =>
     normalize(
       await requestJson(
@@ -124,7 +137,8 @@ export function defineProvider({ cacheKey, url, normalize, headers }) {
           ? Object.fromEntries(
               Object.entries(headers).map(([k, v]) => [k, `${v}${apiKey}`])
             )
-          : undefined
+          : undefined,
+        statusReason
       )
     );
   return {

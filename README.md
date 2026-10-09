@@ -12,7 +12,7 @@
 - 首屏小组件，可拖拽摆放，支持小 / 中 / 大尺寸档，从组件库添加：
   - 天气：Open-Meteo 数据源，留空城市自动定位，定位失败回落西安
   - 待办清单
-  - AI 余额与用量：DeepSeek、Kimi Code、Factory、Antix
+  - AI 余额与用量：DeepSeek、Kimi Code、Factory、Antix、OpenCode Go
 - 壁纸：Bing 每日图（可切换）、自定义壁纸，缩略图优先、高清后台补全
 
 **搜索**

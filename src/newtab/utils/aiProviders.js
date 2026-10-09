@@ -7,6 +7,7 @@ import {
 import { kimiQuota, KIMI_CONSOLE_URL } from "./kimiUsage";
 import { factoryQuota, FACTORY_CONSOLE_URL } from "./factoryUsage";
 import { antixQuota, ANTIX_CONSOLE_URL } from "./antixUsage";
+import { opencodeQuota, OPENCODE_CONSOLE_URL } from "./opencodeUsage";
 
 /** 窗口用量到这个比例就该提醒了 */
 const USAGE_ALERT_PERCENT = 90;
@@ -122,6 +123,32 @@ export const AI_PROVIDERS = [
     describe: (data) =>
       `当前余额 ${currencySymbol(data.currency)}${data.totalBalance.toFixed(2)}`,
     hint: "在 portal.antigma.ai 登录后，从浏览器 Cookie 里复制 antix_session 的值（sess- 开头）。sk-antix-* 密钥只能调模型，查不了余额。该接口官方未公开文档。",
+  },
+  {
+    id: "opencode",
+    optionKey: "opencodeApiKey",
+    title: "OpenCode Go",
+    label: "OpenCode Go API Key",
+    placeholder: "sk-xxxxxxxxxxxx",
+    consoleUrl: OPENCODE_CONSOLE_URL,
+    quota: opencodeQuota,
+    summary: "5 小时 / 周 / 月 三档用量进度",
+    /* 与 Factory 同构：中卡一次性给出三个窗口的进度条，主数值与倒计时都锚在 5 小时档 */
+    format: (data) => ({
+      ...usageView(
+        data.rollingPercent ?? data.weeklyPercent,
+        formatCountdown(data.rollingReset),
+        []
+      ),
+      bars: [
+        { label: "5 小时", percent: data.rollingPercent },
+        { label: "周", percent: data.weeklyPercent },
+        { label: "月", percent: data.monthlyPercent },
+      ].filter((bar) => bar.percent !== null && bar.percent !== undefined),
+    }),
+    describe: (data) =>
+      `5 小时窗口已用 ${Math.round(data.rollingPercent ?? data.weeklyPercent ?? 0)}%`,
+    hint: "在 opencode.ai 控制台的 API Keys 里创建 sk-* 密钥，与 Zen 推理用的是同一把。工作区还需要 Go 订阅，否则用量接口会返回 403。该接口官方未公开文档，字段变动可能导致显示异常。",
   },
 ];
 

@@ -203,6 +203,9 @@ const QuotaWidget = observer((props) => {
 
   const { data, updatedAt, error } = state;
   const unauthorized = error?.type === "unauthorized";
+  /* 状态行只放短标签：整句话塞不进小卡。病因不同标签也不同——
+     密钥不对是「密钥失效」，工作区没订阅是「未订阅」，见 aiProviderCore 的 statusReason。 */
+  const unauthorizedLabel = error?.short || "密钥失效";
   const view = data ? provider.format(data, instance.size) : null;
   const age = unauthorized ? null : formatAge(updatedAt);
   const ageText =
@@ -211,7 +214,7 @@ const QuotaWidget = observer((props) => {
   const bars = showsBars(instance.size) ? view?.bars : null;
 
   const tip = unauthorized
-    ? `${definition.title} 密钥失效，点击前往设置`
+    ? `${error.message}，点击前往设置`
     : error
       ? `${error.message}，显示的是上次的数据，点击重试`
       : "点击刷新，拖动可调整位置";
@@ -220,7 +223,7 @@ const QuotaWidget = observer((props) => {
     if (unauthorized)
       return (
         <Value $size={box} $scheme={palette} $alert $compact>
-          密钥失效
+          {unauthorizedLabel}
         </Value>
       );
     if (loading && !data) return <Skeleton $size={box} />;

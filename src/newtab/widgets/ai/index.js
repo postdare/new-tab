@@ -45,6 +45,17 @@ const APPEARANCE = {
       "linear-gradient(158deg, rgba(34, 84, 88, 0.74) 0%, rgba(26, 66, 70, 0.68) 52%, rgba(38, 94, 98, 0.72) 100%)"
     ),
   },
+  opencode: {
+    /* opencode 是「暖白 + 近黑 + 电光黄」：页面 --color-background-strong
+       hsl(0, 5%, 12%)、深色模式底 hsl(0, 9%, 7%)，Go 用量图的 --bar-go #f7ff00。
+       底色取它的近黑（中性偏暖，比 Kimi 那张更冷更沉），强调色就交给三条进度条：
+       全项目唯一一张黄色条的卡，摆在一起一眼认得出。 */
+    sizes: ["medium", "small"],
+    tint: tint(
+      "linear-gradient(158deg, rgba(32, 30, 30, 0.76) 0%, rgba(18, 17, 17, 0.7) 52%, rgba(26, 25, 25, 0.74) 100%)"
+    ),
+    accent: "#f7ff00",
+  },
 };
 
 /**
