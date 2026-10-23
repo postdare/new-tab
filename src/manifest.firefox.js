@@ -2,7 +2,7 @@ const manifestFirefox = {
   // Firefox 目前对 MV3 支持不完全，这里使用 MV2 风格的 manifest
   manifest_version: 2,
   name: "NewTab",
-  version: "1.5.0",
+  version: "1.5.1",
   description: "Minimal browser new tab",
 
   // 为 Firefox 指定扩展 ID 及最低版本（提交 AMO 时可根据需要调整）

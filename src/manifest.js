@@ -1,7 +1,7 @@
 const manifest = {
   manifest_version: 3,
   name: "NewTab",
-  version: "1.5.0",
+  version: "1.5.1",
   description: "Minimal browser new tab",
   icons: {
     "16": "16x16.png",
