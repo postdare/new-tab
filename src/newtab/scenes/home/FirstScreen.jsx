@@ -290,11 +290,33 @@ const FirstScreen = (props) => {
   // 当前所在屏:0 首屏,1 副屏。新标签页首挂就是 0(返回首屏语义由 Home 的解锁状态管)
   const [currentScreen, setCurrentScreen] = React.useState(0);
 
+  // 切屏过渡动画时长 400ms（与 ScreenTrack 的 transition 保持一致）
+  const transitionTimerRef = React.useRef(null);
+  const isTransitioningRef = React.useRef(false);
+
+  React.useEffect(() => {
+    return () => {
+      if (transitionTimerRef.current) {
+        clearTimeout(transitionTimerRef.current);
+      }
+    };
+  }, []);
+
   const goScreen = useMemoizedFn((next) => {
-    setCurrentScreen((cur) => {
-      const target = normalizeScreen(next);
-      return target === cur ? cur : target;
-    });
+    if (isTransitioningRef.current) return;
+    const target = normalizeScreen(next);
+    if (target === currentScreen) return;
+
+    isTransitioningRef.current = true;
+    setCurrentScreen(target);
+
+    if (transitionTimerRef.current) {
+      clearTimeout(transitionTimerRef.current);
+    }
+    transitionTimerRef.current = setTimeout(() => {
+      isTransitioningRef.current = false;
+      transitionTimerRef.current = null;
+    }, 400);
   });
 
   // ←/→ 方向键切屏。焦点在输入框/可编辑元素时不抢按键——
@@ -513,9 +535,9 @@ const FirstScreen = (props) => {
     return () => clearInterval(interval);
   }, [link]);
 
-  // 轨道位移:切屏只动这一个 transform,壁纸层在轨道外不动不重载
+  // 轨道位移:切屏只动这一个 transform,壁纸层在轨道外不动不重载（使用 translate3d 开启硬件加速）
   const trackStyle = {
-    transform: `translateX(-${currentScreen * 100}%)`,
+    transform: `translate3d(-${currentScreen * 100}%, 0, 0)`,
   };
 
   return (
@@ -581,7 +603,7 @@ const FirstScreen = (props) => {
           ) : null}
         </NavRight>
       </HeaderWrap>
-      <ScreenTrack style={trackStyle} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <ScreenTrack currentScreen={currentScreen} style={trackStyle} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         {/* 首屏 pane:时钟 + 搜索框 + 首屏的组件与书签分组 */}
         <ScreenTrack.Pane>
           {showHomeClock ? (
