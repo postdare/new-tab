@@ -15,6 +15,7 @@ const Viewport = styled.div`
   inset: 0;
   /* 两个 100% pane 拼出 200vw 内容,必须截断,否则底部出横向滚动条 */
   overflow: hidden;
+  touch-action: pan-y;
 `;
 
 const Track = styled.div`
@@ -25,6 +26,8 @@ const Track = styled.div`
   align-items: stretch;
   transition: transform 0.4s cubic-bezier(0.22, 0.61, 0.36, 1);
   will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 `;
 
 const Pane = styled.div`
@@ -33,13 +36,18 @@ const Pane = styled.div`
   width: 100%;
   height: 100%;
   overflow: hidden;
+  touch-action: pan-y;
 `;
 
 const ScreenTrack = (props) => {
-  const { style, children, ...rest } = props;
+  const { currentScreen = 0, style, children, ...rest } = props;
+  const trackStyle = {
+    transform: `translate3d(-${currentScreen * 100}%, 0, 0)`,
+    ...style,
+  };
   return (
     <Viewport {...rest} aria-live="polite">
-      <Track style={style}>{children}</Track>
+      <Track style={trackStyle}>{children}</Track>
     </Viewport>
   );
 };
