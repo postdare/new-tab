@@ -29,6 +29,12 @@ export const GALLERY = {
   /** 缩略图与上下文字的呼吸距离 */
   previewMarginTop: 2,
   previewMarginBottom: 12,
+  /** 分组段标题(12px muted)与段间纵向间距 */
+  sectionTitleFontSize: 12,
+  sectionGap: 32,
+  /** 已添加状态常驻文案:标题下方、档位行上方 */
+  addedFontSize: 11,
+  addedMarginTop: 4,
 };
 
 /** 块宽下限:大卡真实宽 + 两侧留白,由卡盒推导。
