@@ -79,7 +79,7 @@ const result = await build({
       export {
         GALLERY, BLOCK_MIN,
       } from "~/widgets/galleryLayout";
-      export { WIDGET_SIZES } from "~/widgets/sizes";
+      export { WIDGET_SIZES, SIZE_ORDER, orderedSizes } from "~/widgets/sizes";
       export { __setRegistry } from "~/widgets/registry";
       export { __dropped, __resetDropped } from "~/widgets/storage";
     `,
@@ -309,6 +309,25 @@ function groups() {
   assert.deepEqual(m.groupCards([]), []);
 }
 
+/** AC7:档位展示顺序统一 —— 规范顺序固定为 small → medium → large,
+    定义里的数组顺序(默认档在前)不受影响。 */
+function sizeOrder() {
+  assert.deepEqual(m.SIZE_ORDER, ["small", "medium", "large"]);
+
+  // 乱序定义按规范顺序展示
+  assert.deepEqual(m.orderedSizes(["medium", "small"]), ["small", "medium"]);
+  assert.deepEqual(m.orderedSizes(["medium", "small", "large"]), ["small", "medium", "large"]);
+  assert.deepEqual(m.orderedSizes(["large", "small"]), ["small", "large"]);
+
+  // 不改入参数组:第一项仍是定义里的默认档
+  const declared = ["medium", "small"];
+  m.orderedSizes(declared);
+  assert.deepEqual(declared, ["medium", "small"]);
+
+  // 未知档位不丢,排在末尾且保持相对顺序
+  assert.deepEqual(m.orderedSizes(["huge", "medium", "tiny"]), ["medium", "huge", "tiny"]);
+}
+
 /** AC4:行内紧凑填充版式契约 —— 预览即实物(真实卡盒),块宽由卡盒推导、角标锚预览角。
     断言真实渲染路径(widgetSize/BLOCK_MIN),不是某个已废弃的预览缩放语义。 */
 function overflow() {
@@ -398,6 +417,7 @@ const sections = {
   "single-instance": singleInstance,
   dedup,
   groups,
+  "size-order": sizeOrder,
   overflow,
   regression,
 };
