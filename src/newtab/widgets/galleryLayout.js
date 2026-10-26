@@ -35,8 +35,23 @@ export const GALLERY = {
   /** 已添加状态常驻文案:标题下方、档位行上方 */
   addedFontSize: 11,
   addedMarginTop: 4,
+  /** 状态行/档位行/操作行的固定行高:内容缺席时也占位,三行才横向对齐 */
+  statusRowHeight: 16,
+  sizesRowHeight: 18,
+  actionRowHeight: 22,
+  /** 卡片内常驻操作行:弱化到 0.6,hover / 聚焦提到 1 */
+  actionGap: 12,
+  actionFontSize: 11,
+  actionOpacity: 0.6,
 };
 
 /** 块宽下限:大卡真实宽 + 两侧留白,由卡盒推导。
     设置面(Back)固定用这个宽,比任何一档卡片都宽,表单读得舒服。 */
 export const BLOCK_MIN = widgetSize("large").width + GALLERY.cardPadding * 2;
+
+/**
+ * 预览统一槽位:每张卡都占同样大小的槽,预览在槽内居中;
+ * 超过槽位的档位按比例缩小(不放大),行高因此一致。
+ * 宽高不小于大档真实宽,又能放进 BLOCK_MIN(背面表单宽)内。
+ */
+export const PREVIEW_BOX = { width: 288, height: 288 };
