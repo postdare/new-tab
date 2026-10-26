@@ -170,19 +170,27 @@ const Tile = styled.div`
   }
 `;
 
-/* 真实档位盒按原尺寸渲染,只有比槽位大时才 scale 下来(小卡保持原大小、不放大)。
-   transform 不参与布局,占位由外层固定槽位兜住,不会按原始尺寸撑开或裁切圆角。 */
+/* 预览适配槽位:外层按缩放后的实际尺寸占位(布局不会按原始档位盒撑开),
+   内层是原大的档位盒,再 transform 缩进外层。只缩不放。 */
 const PreviewFit = styled.div`
-  display: flex;
-  border-radius: ${WIDGET_METRICS.radius}px;
-  transform: scale(${(props) => props.$scale});
-  transform-origin: center center;
+  position: relative;
+  width: ${(props) => Math.round(props.$box.width * props.$scale)}px;
+  height: ${(props) => Math.round(props.$box.height * props.$scale)}px;
+  border-radius: ${(props) => Math.round(WIDGET_METRICS.radius * props.$scale)}px;
   /* 已添加的缩略图常驻一圈淡描边(低透明度 currentColor,深浅主题都看得见),
      不看 hover 也能认出哪张已经加过 */
   box-shadow: ${(props) =>
     props.$added
       ? "0 0 0 1px color-mix(in srgb, var(--colorText, #333) 22%, transparent)"
       : "none"};
+`;
+
+const PreviewScaled = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: scale(${(props) => props.$scale});
+  transform-origin: top left;
 `;
 
 const Title = styled.div`
@@ -388,8 +396,10 @@ const GalleryCard = (props) => {
   ) : (
     <Front>
       <Tile>
-        <PreviewFit $scale={scale} $added={added}>
-          <WidgetPreview definition={definition} size={size} dim={!added && !canAdd} />
+        <PreviewFit $box={box} $scale={scale} $added={added}>
+          <PreviewScaled $scale={scale}>
+            <WidgetPreview definition={definition} size={size} dim={!added && !canAdd} />
+          </PreviewScaled>
         </PreviewFit>
       </Tile>
       <Title>{title}</Title>
