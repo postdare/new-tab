@@ -77,7 +77,7 @@ const result = await build({
       } from "~/widgets/instances";
       export { galleryCards, groupCards, applyDedupe, DEFAULT_GROUP } from "~/widgets/galleryModel";
       export {
-        GALLERY, BLOCK_MIN,
+        GALLERY, BLOCK_MIN, PREVIEW_BOX,
       } from "~/widgets/galleryLayout";
       export { WIDGET_SIZES, SIZE_ORDER, orderedSizes } from "~/widgets/sizes";
       export { __setRegistry } from "~/widgets/registry";
@@ -353,6 +353,25 @@ function layout() {
   assert.ok(src.includes("已在副屏"), "已添加(副屏)应有常驻文案");
   assert.ok(src.includes("$added={added}"), "已添加缩略图应带描边标记");
   assert.equal(m.GALLERY.addedFontSize, 11, "已添加文案 11px");
+
+  // 第二波 1) 预览统一槽位:常量存在、不小于大档、能放进 BLOCK_MIN
+  assert.ok(m.PREVIEW_BOX.width >= m.WIDGET_SIZES.large.width, "槽位宽不小于大档宽");
+  assert.ok(m.PREVIEW_BOX.height >= m.WIDGET_SIZES.large.height, "槽位高不小于大档高");
+  assert.ok(m.PREVIEW_BOX.width <= m.BLOCK_MIN, "槽位应放进 BLOCK_MIN(背面表单宽)内");
+  assert.ok(src.includes("width: ${PREVIEW_BOX.width}px"), "Front 宽应取槽位宽");
+  assert.ok(src.includes("Math.min(1"), "预览缩放不应放大");
+  assert.ok(src.includes("transform: scale("), "预览应按比例缩放适配槽位");
+
+  // 第二波 2) 操作从 hover 角标移到常驻操作行
+  assert.ok(src.includes("<ActionRow>"), "应有常驻操作行");
+  assert.ok(src.includes("添加到首屏"), "未添加卡应有添加文案");
+  assert.ok(src.includes("移除"), "已添加卡应有移除文案");
+  assert.ok(src.includes("移到副屏") && src.includes("移到首屏"), "已添加卡应有换屏文案");
+  assert.ok(!src.includes("hoverOnly"), "不应再有 hover 才显示的操作");
+  assert.ok(!src.includes("$reveal"), "不应再有 hover 角标那套");
+  assert.equal(m.GALLERY.actionOpacity, 0.6, "操作行常驻弱化 0.6");
+  assert.ok(m.GALLERY.statusRowHeight > 0, "状态行缺席时也应占固定行高");
+  assert.ok(m.GALLERY.sizesRowHeight > 0, "单档组件也应占档位行高");
 }
 
 /** AC4:行内紧凑填充版式契约 —— 预览即实物(真实卡盒),块宽由卡盒推导、角标锚预览角。
@@ -384,11 +403,11 @@ function overflow() {
   assert.ok(src.includes("widgetSize(size)"), "正面块宽应取 widgetSize(档位)");
   assert.ok(src.includes("GALLERY.columnGap"), "块间距应取 GALLERY.columnGap");
 
-  // 删除/设置角标:放进 Tile 锚预览右上角,随块 hover 显现;背面返回钮常驻
-  const tile = src.slice(src.indexOf("<Tile "), src.indexOf("</Tile>"));
+  // 第二波:预览放进固定槽位,只缩不放;操作不再挂在预览角上
+  const tile = src.slice(src.indexOf("<Tile>"), src.indexOf("</Tile>"));
   assert.ok(tile.includes("WidgetPreview"), "Tile 内应渲染预览缩略图");
-  assert.ok(tile.includes("<Corner $reveal"), "角标应放进 Tile(锚预览右上角)且带 $reveal");
-  assert.ok(src.includes("&:hover ${Corner}"), "角标应随块 hover 显现");
+  assert.ok(tile.includes("<PreviewFit"), "预览应由 PreviewFit 缩放适配槽位");
+  assert.ok(!tile.includes("<Corner"), "预览槽位里不应再有角标按钮");
 }
 
 /** AC5:既有实例函数行为锁定为回归基线 */
