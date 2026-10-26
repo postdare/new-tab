@@ -1,8 +1,7 @@
 import React from "react";
 import { observer } from "mobx-react";
-import styled, { css } from "styled-components";
+import styled from "styled-components";
 import { IconPlus, IconMinus, IconSettings, IconArrowBackUp, IconArrowsExchange } from "@tabler/icons-react";
-import { Tooltip } from "antd";
 import useStores from "~/hooks/useStores";
 import { WIDGETS } from "~/widgets/registry";
 import {
@@ -19,7 +18,7 @@ import { dropWidgetData } from "~/widgets/storage";
 import WidgetPreview from "~/widgets/WidgetPreview";
 import SettingsForm from "~/widgets/SettingsForm";
 import { SIZE_LABELS, WIDGET_METRICS, orderedSizes, widgetSize } from "~/widgets/sizes";
-import { BLOCK_MIN, GALLERY } from "~/widgets/galleryLayout";
+import { BLOCK_MIN, GALLERY, PREVIEW_BOX } from "~/widgets/galleryLayout";
 
 const Warp = styled.section`
   width: 100%;
@@ -86,7 +85,7 @@ const Grid = styled.div`
 
 /* 每个组件一块(栅格直接收 Front/Back 作子项,块就是行内一个条目)。
    这页的「块」没有边框、底色、圆角,只有组件缩略图 + 文字,直接浮在页面上。
-   正面块宽 = 预览宽,背面固定 BLOCK_MIN(设置表单需要稳定可读的宽度)。 */
+   正面块宽 = 预览槽位宽,背面固定 BLOCK_MIN(设置表单需要稳定可读的宽度)。 */
 const Face = styled.div`
   position: relative;
   display: flex;
@@ -95,22 +94,7 @@ const Face = styled.div`
   box-sizing: border-box;
 `;
 
-/* hover 才显现的角标:透明但可聚焦(不能 visibility:hidden,那会连
-   Tab 都到不了),pointer-events 关掉以免隐形钮吞点击 */
-const hoverOnly = css`
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-
-  @media (hover: none) {
-    opacity: 1;
-    pointer-events: auto;
-  }
-`;
-
-/* 角标按钮:贴在预览缩略图右上角(由放置它的 Tile 锚定),操作钮($reveal)
-   随块 hover / 聚焦才浮现,免得三档缩略图常年被圆钮压角;背面返回钮不带
-   $reveal,常驻。触屏没有 hover,(hover: none) 下直接常驻。 */
+/* 背面返回钮的锚点:贴设置面右上角,常驻 */
 const Corner = styled.div`
   position: absolute;
   top: -6px;
@@ -118,19 +102,12 @@ const Corner = styled.div`
   display: flex;
   gap: 6px;
   z-index: 1;
-  ${(props) => props.$reveal && hoverOnly}
 `;
 
 const Front = styled(Face)`
-  /* 正面块宽 = 预览宽($w):标题、档位行都在预览宽度内省略/排布,
-     块不会比预览图还宽,行内才塞得紧 */
-  width: ${(props) => props.$w}px;
+  /* 正面块宽 = 统一槽位宽:每张卡同宽,标题、档位行、操作行才排得齐 */
+  width: ${PREVIEW_BOX.width}px;
   text-align: center;
-
-  &:hover ${Corner}, &:focus-within ${Corner} {
-    opacity: 1;
-    pointer-events: auto;
-  }
 `;
 
 const Back = styled(Face)`
@@ -176,26 +153,44 @@ const Round = styled.button`
   }
 `;
 
-/* 缩略图直接按原尺寸摆放:小档是最小方块,中档横条,大档大方块。
-   块高因此天然随档位走,不用再给预览留固定槽位。
-   relative 是角标的锚:Corner 贴缩略图右上角,而不是整块的右上角。 */
+/* 预览槽位:所有档位都占同一块固定尺寸,预览在槽内居中。
+   超出槽位的档位由内层按比例缩到放得下,槽位本身不随档位变,
+   所以每张卡等高、下面几行自然横向对齐。 */
 const Tile = styled.div`
-  position: relative;
+  width: ${PREVIEW_BOX.width}px;
+  height: ${PREVIEW_BOX.height}px;
   display: flex;
+  align-items: center;
   justify-content: center;
   margin: ${GALLERY.previewMarginTop}px 0 ${GALLERY.previewMarginBottom}px;
-  border-radius: ${WIDGET_METRICS.radius}px;
+  transition: transform 0.18s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+`;
+
+/* 预览适配槽位:外层按缩放后的实际尺寸占位(布局不会按原始档位盒撑开),
+   内层是原大的档位盒,再 transform 缩进外层。只缩不放。 */
+const PreviewFit = styled.div`
+  position: relative;
+  width: ${(props) => Math.round(props.$box.width * props.$scale)}px;
+  height: ${(props) => Math.round(props.$box.height * props.$scale)}px;
+  border-radius: ${(props) => Math.round(WIDGET_METRICS.radius * props.$scale)}px;
   /* 已添加的缩略图常驻一圈淡描边(低透明度 currentColor,深浅主题都看得见),
      不看 hover 也能认出哪张已经加过 */
   box-shadow: ${(props) =>
     props.$added
       ? "0 0 0 1px color-mix(in srgb, var(--colorText, #333) 22%, transparent)"
       : "none"};
-  transition: transform 0.18s ease;
+`;
 
-  &:hover {
-    transform: translateY(-1px);
-  }
+const PreviewScaled = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: scale(${(props) => props.$scale});
+  transform-origin: top left;
 `;
 
 const Title = styled.div`
@@ -208,19 +203,23 @@ const Title = styled.div`
   text-overflow: ellipsis;
 `;
 
-/* 已添加状态:标题下、档位行上,11px muted;未添加的卡不显示 */
-const AddedNote = styled.div`
+/* 已添加状态:标题下、档位行上,11px muted;未添加不显示文字,
+   但这一行的高度照占,已添加/未添加的档位行与操作行才对得齐 */
+const StatusRow = styled.div`
   margin-top: ${GALLERY.addedMarginTop}px;
+  min-height: ${GALLERY.statusRowHeight}px;
   font-size: ${GALLERY.addedFontSize}px;
   line-height: 1.4;
   color: var(--workspaceMuted, rgba(28, 25, 23, 0.48));
 `;
 
 /* 尺寸档不用 Segmented:白底方块组在这里太重,
-   降成一排文字,选中的实一点就够了 */
+   降成一排文字,选中的实一点就够了。单档组件没有按钮,但行高照占。 */
 const Sizes = styled.div`
   margin-top: ${GALLERY.sizesMarginTop}px;
+  min-height: ${GALLERY.sizesRowHeight}px;
   display: flex;
+  align-items: center;
   justify-content: center;
   gap: 12px;
 `;
@@ -239,6 +238,64 @@ const SizeBtn = styled.button`
 
   &:hover {
     opacity: ${(props) => (props.$active ? 1 : 0.7)};
+  }
+`;
+
+/* 常驻操作行:添加/设置/换屏/移除都在这里,不再藏进 hover 才出现的角标。
+   整行弱化到 0.6,hover / 聚焦时提亮;触屏没有 hover,直接常驻完整不透明度。 */
+const ActionRow = styled.div`
+  margin-top: 4px;
+  min-height: ${GALLERY.actionRowHeight}px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: ${GALLERY.actionGap}px;
+  opacity: ${GALLERY.actionOpacity};
+  transition: opacity 0.15s ease;
+
+  &:hover,
+  &:focus-within {
+    opacity: 1;
+  }
+
+  @media (hover: none) {
+    opacity: 1;
+  }
+`;
+
+/* 小文字按钮:图标 + 11px 文案;缺密钥等前置条件用 $attention 提亮,
+   在整行弱化之下也看得见 */
+const ActionBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font-size: ${GALLERY.actionFontSize}px;
+  line-height: 1.4;
+  color: ${(props) =>
+    props.$attention
+      ? "var(--colorText, #333)"
+      : "var(--workspaceMuted, rgba(28, 25, 23, 0.48))"};
+  background: ${(props) =>
+    props.$attention ? "color-mix(in srgb, var(--colorText, #333) 10%, transparent)" : "none"};
+  font-weight: ${(props) => (props.$attention ? 600 : 400)};
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+
+  &:hover:not(:disabled) {
+    color: var(--colorText, #333);
+    background: color-mix(in srgb, var(--colorText, #333) 8%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
 `;
 
@@ -275,8 +332,8 @@ const Footer = styled.div`
   line-height: 1.6;
 `;
 
-/** 一块组件:正面是缩略图 + 说明 + 尺寸档,点设置换成设置内容,
- *  右上角一个 + 或 −。块高完全由内容撑开,不写死。 */
+/** 一块组件:正面是固定槽位预览 + 标题/状态/档位/常驻操作行,点设置换成设置内容;
+ *  背面右上角的返回钮常驻。块高由槽位与固定行高撑开,所有卡一致。 */
 const GalleryCard = (props) => {
   const {
     card,
@@ -305,8 +362,9 @@ const GalleryCard = (props) => {
   const [flipped, setFlipped] = React.useState(false);
   const canFlip = !!(settingsSchema || configSchema);
   const title = added ? definition.instanceTitle?.(instance) || definition.title : definition.title;
-  // 正面块宽 = 该档位卡片的真实宽,标题、档位行都在这宽度内排,行内才塞得紧
+  // 预览按真实档位盒渲染;超过槽位才按比例缩小,且永远不放大
   const box = widgetSize(size);
+  const scale = Math.min(1, PREVIEW_BOX.width / box.width, PREVIEW_BOX.height / box.height);
 
   return flipped ? (
     <Back>
@@ -336,53 +394,60 @@ const GalleryCard = (props) => {
       ) : null}
     </Back>
   ) : (
-    <Front $w={box.width}>
-      <Tile $added={added}>
-        <WidgetPreview definition={definition} size={size} dim={!added && !canAdd} />
-        {/* 角标放在 Tile 里才贴得住预览右上角;hover 块时浮现 */}
-        <Corner $reveal>
-          {canFlip ? (
-            <Round
-              type="button"
-              title="设置"
-              $attention={attention}
-              onClick={() => setFlipped(true)}
-            >
-              <IconSettings size={13} stroke={1.8} />
-            </Round>
-          ) : null}
-          {added ? (
-            <>
-              <Tooltip title={instance.screen ? "移到首屏" : "移到副屏"}>
-                <Round
-                  type="button"
-                  onClick={onMoveScreen}
-                >
-                  <IconArrowsExchange size={13} stroke={1.8} />
-                </Round>
-              </Tooltip>
-              <Round type="button" title="移除" onClick={onRemove}>
-                <IconMinus size={14} stroke={2} />
-              </Round>
-            </>
-          ) : (
-            <Round type="button" title={addReason} disabled={!canAdd} onClick={onAdd}>
-              <IconPlus size={14} stroke={2} />
-            </Round>
-          )}
-        </Corner>
+    <Front>
+      <Tile>
+        <PreviewFit $box={box} $scale={scale} $added={added}>
+          <PreviewScaled $scale={scale}>
+            <WidgetPreview definition={definition} size={size} dim={!added && !canAdd} />
+          </PreviewScaled>
+        </PreviewFit>
       </Tile>
       <Title>{title}</Title>
-      {added ? <AddedNote>{instance.screen ? "已在副屏" : "已在首屏"}</AddedNote> : null}
-      {definition.sizes.length > 1 ? (
-        <Sizes>
-          {orderedSizes(definition.sizes).map((one) => (
-            <SizeBtn key={one} type="button" $active={one === size} onClick={() => onResize(one)}>
-              {SIZE_LABELS[one]}
-            </SizeBtn>
-          ))}
-        </Sizes>
-      ) : null}
+      <StatusRow>{added ? (instance.screen ? "已在副屏" : "已在首屏") : null}</StatusRow>
+      <Sizes>
+        {definition.sizes.length > 1
+          ? orderedSizes(definition.sizes).map((one) => (
+              <SizeBtn
+                key={one}
+                type="button"
+                $active={one === size}
+                onClick={() => onResize(one)}
+              >
+                {SIZE_LABELS[one]}
+              </SizeBtn>
+            ))
+          : null}
+      </Sizes>
+      <ActionRow>
+        {canFlip ? (
+          <ActionBtn
+            type="button"
+            $attention={attention}
+            title="设置"
+            onClick={() => setFlipped(true)}
+          >
+            <IconSettings size={12} stroke={1.8} />
+            设置
+          </ActionBtn>
+        ) : null}
+        {added ? (
+          <>
+            <ActionBtn type="button" onClick={onMoveScreen}>
+              <IconArrowsExchange size={12} stroke={1.8} />
+              {instance.screen ? "移到首屏" : "移到副屏"}
+            </ActionBtn>
+            <ActionBtn type="button" onClick={onRemove}>
+              <IconMinus size={12} stroke={2} />
+              移除
+            </ActionBtn>
+          </>
+        ) : (
+          <ActionBtn type="button" title={addReason} disabled={!canAdd} onClick={onAdd}>
+            <IconPlus size={12} stroke={2} />
+            添加到首屏
+          </ActionBtn>
+        )}
+      </ActionRow>
     </Front>
   );
 };
