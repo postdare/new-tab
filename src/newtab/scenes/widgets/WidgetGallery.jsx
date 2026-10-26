@@ -13,12 +13,12 @@ import {
   updateInstanceConfig,
   removeInstance,
 } from "~/widgets/instances";
-import { galleryCards, applyDedupe } from "~/widgets/galleryModel";
+import { galleryCards, groupCards, applyDedupe } from "~/widgets/galleryModel";
 import { placeNewWidget } from "~/widgets/layout";
 import { dropWidgetData } from "~/widgets/storage";
 import WidgetPreview from "~/widgets/WidgetPreview";
 import SettingsForm from "~/widgets/SettingsForm";
-import { SIZE_LABELS, widgetSize } from "~/widgets/sizes";
+import { SIZE_LABELS, WIDGET_METRICS, orderedSizes, widgetSize } from "~/widgets/sizes";
 import { BLOCK_MIN, GALLERY } from "~/widgets/galleryLayout";
 
 const Warp = styled.section`
@@ -51,15 +51,37 @@ const PageDesc = styled.div`
   line-height: 1.6;
 `;
 
+/* 按 group 分段(分组在模型层做好,这里只渲染):段与段之间 32px */
+const Sections = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${GALLERY.sectionGap}px;
+  margin-top: 24px;
+`;
+
+const Section = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+
+const SectionTitle = styled.h2`
+  margin: 0;
+  font-size: ${GALLERY.sectionTitleFontSize}px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--workspaceMuted, rgba(28, 25, 23, 0.48));
+`;
+
 /* 行内紧凑填充:块宽随预览内容走,一行从左到右塞满才换行,不再把页面切成
-   等宽列、让小块周围留出大片空白。行内顺序即阅读顺序;行尾放不下就换行。 */
+   等宽列、让小块周围留出大片空白。行内顺序即阅读顺序;行尾放不下就换行。
+   行首左对齐:最后一行卡片少时也从左边排起,不会被居中推离左侧。 */
 const Grid = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  justify-content: center;
+  justify-content: flex-start;
   gap: ${GALLERY.cardGap}px ${GALLERY.columnGap}px;
-  margin-top: 24px;
+  margin-top: 12px;
 `;
 
 /* 每个组件一块(栅格直接收 Front/Back 作子项,块就是行内一个条目)。
@@ -162,6 +184,13 @@ const Tile = styled.div`
   display: flex;
   justify-content: center;
   margin: ${GALLERY.previewMarginTop}px 0 ${GALLERY.previewMarginBottom}px;
+  border-radius: ${WIDGET_METRICS.radius}px;
+  /* 已添加的缩略图常驻一圈淡描边(低透明度 currentColor,深浅主题都看得见),
+     不看 hover 也能认出哪张已经加过 */
+  box-shadow: ${(props) =>
+    props.$added
+      ? "0 0 0 1px color-mix(in srgb, var(--colorText, #333) 22%, transparent)"
+      : "none"};
   transition: transform 0.18s ease;
 
   &:hover {
@@ -177,6 +206,14 @@ const Title = styled.div`
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+`;
+
+/* 已添加状态:标题下、档位行上,11px muted;未添加的卡不显示 */
+const AddedNote = styled.div`
+  margin-top: ${GALLERY.addedMarginTop}px;
+  font-size: ${GALLERY.addedFontSize}px;
+  line-height: 1.4;
+  color: var(--workspaceMuted, rgba(28, 25, 23, 0.48));
 `;
 
 /* 尺寸档不用 Segmented:白底方块组在这里太重,
@@ -300,7 +337,7 @@ const GalleryCard = (props) => {
     </Back>
   ) : (
     <Front $w={box.width}>
-      <Tile>
+      <Tile $added={added}>
         <WidgetPreview definition={definition} size={size} dim={!added && !canAdd} />
         {/* 角标放在 Tile 里才贴得住预览右上角;hover 块时浮现 */}
         <Corner $reveal>
@@ -336,9 +373,10 @@ const GalleryCard = (props) => {
         </Corner>
       </Tile>
       <Title>{title}</Title>
+      {added ? <AddedNote>{instance.screen ? "已在副屏" : "已在首屏"}</AddedNote> : null}
       {definition.sizes.length > 1 ? (
         <Sizes>
-          {definition.sizes.map((one) => (
+          {orderedSizes(definition.sizes).map((one) => (
             <SizeBtn key={one} type="button" $active={one === size} onClick={() => onResize(one)}>
               {SIZE_LABELS[one]}
             </SizeBtn>
@@ -361,6 +399,8 @@ const WidgetGallery = () => {
   const dedup = listInstancesWithDedup(item);
   const instances = dedup.instances;
   const cards = galleryCards(WIDGETS, instances, item);
+  // 分组在模型层:段顺序 = group 首次出现的顺序,段内保持定义顺序
+  const sections = groupCards(cards);
 
   // 尚未添加的块在组件库里选中的档位;没选过就用定义里的第一档
   const [picked, setPicked] = React.useState({});
@@ -403,33 +443,42 @@ const WidgetGallery = () => {
       <PageTitle>小组件</PageTitle>
       <PageDesc>挑尺寸档位加到首屏，可像 Mac 桌面一样随意拖动摆放。</PageDesc>
 
-      <Grid>
-        {cards.map((card) => {
-          const { definition, instance, added } = card;
-          const size = added ? instance.size : picked[definition.type] || definition.sizes[0];
-          return (
-            <GalleryCard
-              key={definition.type}
-              card={card}
-              size={size}
-              onResize={(next) =>
-                added
-                  ? save(updateInstance(instances, instance.id, { size: next }))
-                  : setPicked({ ...picked, [definition.type]: next })
-              }
-              onAdd={() => add(card)}
-              onRemove={() => drop(card)}
-              onMoveScreen={() => moveToOtherScreen(card)}
-              onSaveSetting={(key, value) => option.setItem(key, value)}
-              onClearSetting={(key) => option.setItem(key, "")}
-              onSaveConfig={(key, value) =>
-                save(updateInstanceConfig(instances, instance.id, key, value))
-              }
-              onClearConfig={(key) => save(updateInstanceConfig(instances, instance.id, key, ""))}
-            />
-          );
-        })}
-      </Grid>
+      <Sections>
+        {sections.map((section) => (
+          <Section key={section.group}>
+            <SectionTitle>{section.group}</SectionTitle>
+            <Grid>
+              {section.cards.map((card) => {
+                const { definition, instance, added } = card;
+                const size = added ? instance.size : picked[definition.type] || definition.sizes[0];
+                return (
+                  <GalleryCard
+                    key={definition.type}
+                    card={card}
+                    size={size}
+                    onResize={(next) =>
+                      added
+                        ? save(updateInstance(instances, instance.id, { size: next }))
+                        : setPicked({ ...picked, [definition.type]: next })
+                    }
+                    onAdd={() => add(card)}
+                    onRemove={() => drop(card)}
+                    onMoveScreen={() => moveToOtherScreen(card)}
+                    onSaveSetting={(key, value) => option.setItem(key, value)}
+                    onClearSetting={(key) => option.setItem(key, "")}
+                    onSaveConfig={(key, value) =>
+                      save(updateInstanceConfig(instances, instance.id, key, value))
+                    }
+                    onClearConfig={(key) =>
+                      save(updateInstanceConfig(instances, instance.id, key, ""))
+                    }
+                  />
+                );
+              })}
+            </Grid>
+          </Section>
+        ))}
+      </Sections>
       {WIDGETS.length === 0 ? <Empty>还没有可用的组件。</Empty> : null}
 
       <Footer>
