@@ -354,13 +354,32 @@ function layout() {
   assert.ok(src.includes("$added={added}"), "已添加缩略图应带描边标记");
   assert.equal(m.GALLERY.addedFontSize, 11, "已添加文案 11px");
 
-  // 第二波 1) 预览统一槽位:常量存在、不小于大档、能放进 BLOCK_MIN
-  assert.ok(m.PREVIEW_BOX.width >= m.WIDGET_SIZES.large.width, "槽位宽不小于大档宽");
-  assert.ok(m.PREVIEW_BOX.height >= m.WIDGET_SIZES.large.height, "槽位高不小于大档高");
+  // 第三波 1) 槽位缩到 240:1600 视口(内容宽 1304)下 AI 五卡一行排满
+  assert.equal(m.PREVIEW_BOX.width, 240, "槽位宽 240");
+  assert.equal(m.PREVIEW_BOX.height, 240, "槽位高 240");
+  assert.ok(
+    5 * m.PREVIEW_BOX.width + 4 * m.GALLERY.columnGap <= 1304,
+    "5 张卡 + 4 个列距应放进 1600 视口的内容宽 1304",
+  );
+  assert.ok(m.PREVIEW_BOX.width >= m.WIDGET_SIZES.small.width, "槽位至少容得下小卡原大");
   assert.ok(m.PREVIEW_BOX.width <= m.BLOCK_MIN, "槽位应放进 BLOCK_MIN(背面表单宽)内");
   assert.ok(src.includes("width: ${PREVIEW_BOX.width}px"), "Front 宽应取槽位宽");
   assert.ok(src.includes("Math.min(1"), "预览缩放不应放大");
   assert.ok(src.includes("transform: scale("), "预览应按比例缩放适配槽位");
+  assert.ok(src.includes("<PreviewScaled"), "原大档位盒应由内层缩放,外层按缩放后尺寸占位");
+
+  // 中卡 282×136 缩到 240×116;小卡保持 136 原大(不放大)
+  const fit = (box) =>
+    Math.min(
+      1,
+      m.PREVIEW_BOX.width / box.width,
+      m.PREVIEW_BOX.height / box.height,
+    );
+  const mediumScale = fit(m.WIDGET_SIZES.medium);
+  assert.equal(Math.round(m.WIDGET_SIZES.medium.width * mediumScale), 240);
+  assert.equal(Math.round(m.WIDGET_SIZES.medium.height * mediumScale), 116);
+  assert.equal(fit(m.WIDGET_SIZES.small), 1, "小卡不放大");
+  assert.ok(fit(m.WIDGET_SIZES.large) < 1, "大卡应缩进槽位");
 
   // 第二波 2) 操作从 hover 角标移到常驻操作行
   assert.ok(src.includes("<ActionRow>"), "应有常驻操作行");
