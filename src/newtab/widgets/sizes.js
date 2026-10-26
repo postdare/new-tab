@@ -55,6 +55,17 @@ export const WIDGET_METRICS = {
 
 export const DEFAULT_SIZE = "small";
 
+/** 档位按钮的规范展示顺序:小 → 中 → 大。
+    定义里的 sizes 数组顺序仍是「默认档在前」,页面展示时只按这里排序。 */
+export const SIZE_ORDER = ["small", "medium", "large"];
+
+/** 按规范顺序返回档位副本,不改入参数组;未知档位保持原相对顺序排在末尾 */
+export function orderedSizes(sizes) {
+  const rank = new Map(SIZE_ORDER.map((name, index) => [name, index]));
+  const of = (name) => (rank.has(name) ? rank.get(name) : SIZE_ORDER.length);
+  return [...sizes].sort((a, b) => of(a) - of(b));
+}
+
 /** 组件库里给尺寸档的中文标签 */
 export const SIZE_LABELS = {
   small: "小",

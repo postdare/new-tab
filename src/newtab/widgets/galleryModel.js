@@ -37,6 +37,29 @@ export function galleryCards(definitions, instances, item) {
   });
 }
 
+/** 定义没写 group 时归到这一段,页面上不会出现空白标题 */
+export const DEFAULT_GROUP = "其他";
+
+/**
+ * 按 group 分段:段顺序 = group 在定义里首次出现的顺序,段内保持传入顺序。
+ * 分组只在模型层做,页面拿到的是现成的段,不自己聚合。
+ */
+export function groupCards(cards) {
+  const sections = [];
+  const byGroup = new Map();
+  for (const card of cards) {
+    const group = card.definition.group || DEFAULT_GROUP;
+    let section = byGroup.get(group);
+    if (!section) {
+      section = { group, cards: [] };
+      byGroup.set(group, section);
+      sections.push(section);
+    }
+    section.cards.push(card);
+  }
+  return sections;
+}
+
 /**
  * 去重落地:没变化就什么都不做(读写都不发生);
  * 有变化写一次存储,被丢实例的数据行(待办条目等)一起清掉,

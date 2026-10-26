@@ -75,11 +75,11 @@ const result = await build({
         updateInstance, updateInstanceConfig, removeInstance,
         addInstance, dedupeInstances,
       } from "~/widgets/instances";
-      export { galleryCards, applyDedupe } from "~/widgets/galleryModel";
+      export { galleryCards, groupCards, applyDedupe, DEFAULT_GROUP } from "~/widgets/galleryModel";
       export {
         GALLERY, BLOCK_MIN,
       } from "~/widgets/galleryLayout";
-      export { WIDGET_SIZES } from "~/widgets/sizes";
+      export { WIDGET_SIZES, SIZE_ORDER, orderedSizes } from "~/widgets/sizes";
       export { __setRegistry } from "~/widgets/registry";
       export { __dropped, __resetDropped } from "~/widgets/storage";
     `,
@@ -186,15 +186,16 @@ function singleList() {
   assert.match(cg.addReason, /需先填写/);
   assert.equal(cg.attention, true);
 
-  // 源码断言:单一栅格,不再有已添加/组件库/分组标题
+  // 源码断言:统一列表模型 + 按 group 分段渲染,分组逻辑只在模型层
   const src = fs.readFileSync(
     new URL("../scenes/widgets/WidgetGallery.jsx", import.meta.url).pathname,
     "utf8",
   );
-  assert.ok(!src.includes("GROUPS"), "不应再有分组聚合");
-  assert.ok(!/<Section[\s>/]|<Group[\s>/]/.test(src), "不应再有已添加/组件库/分组标题渲染");
-  assert.equal((src.match(/<Grid>/g) || []).length, 1, "整页应只有一个栅格");
   assert.ok(src.includes("galleryCards("), "页面应消费统一列表模型");
+  assert.ok(src.includes("groupCards(cards)"), "分组应由模型层产出");
+  assert.ok(src.includes("<SectionTitle>"), "每段应渲染分组小标题");
+  assert.ok(!src.includes("GROUPS"), "页面不应自己定义分组表");
+  assert.equal((src.match(/<Grid>/g) || []).length, 1, "栅格只定义一次,按段复用");
 }
 
 /** AC2:一种组件只能添加一个实例 —— 数据层拦截 + 模型标记 */
@@ -273,6 +274,87 @@ async function dedup() {
   assert.deepEqual(m.__dropped(), ["3", "4", "5"]);
 }
 
+/** AC6:按 group 分段 —— 段顺序 = group 首次出现的顺序,段内保持定义顺序 */
+function groups() {
+  const cards = m.galleryCards(
+    [
+      def("a1", { group: "AI 额度" }),
+      def("b1", { group: "效率" }),
+      def("a2", { group: "AI 额度" }),
+      def("c1", { group: "生活" }),
+      def("b2", { group: "效率" }),
+      def("nogroup"),
+    ],
+    [],
+    {},
+  );
+  const sections = m.groupCards(cards);
+
+  // 段顺序按 group 首次出现,同组卡片聚合且保持原相对顺序
+  assert.deepEqual(
+    sections.map((s) => s.group),
+    ["AI 额度", "效率", "生活", m.DEFAULT_GROUP],
+  );
+  assert.deepEqual(
+    sections.map((s) => s.cards.map((c) => c.definition.type)),
+    [["a1", "a2"], ["b1", "b2"], ["c1"], ["nogroup"]],
+  );
+
+  // 每张卡恰好出现一次
+  assert.equal(
+    sections.flatMap((s) => s.cards).length,
+    cards.length,
+  );
+
+  // 空列表 → 空段
+  assert.deepEqual(m.groupCards([]), []);
+}
+
+/** AC7:档位展示顺序统一 —— 规范顺序固定为 small → medium → large,
+    定义里的数组顺序(默认档在前)不受影响。 */
+function sizeOrder() {
+  assert.deepEqual(m.SIZE_ORDER, ["small", "medium", "large"]);
+
+  // 乱序定义按规范顺序展示
+  assert.deepEqual(m.orderedSizes(["medium", "small"]), ["small", "medium"]);
+  assert.deepEqual(m.orderedSizes(["medium", "small", "large"]), ["small", "medium", "large"]);
+  assert.deepEqual(m.orderedSizes(["large", "small"]), ["small", "large"]);
+
+  // 不改入参数组:第一项仍是定义里的默认档
+  const declared = ["medium", "small"];
+  m.orderedSizes(declared);
+  assert.deepEqual(declared, ["medium", "small"]);
+
+  // 未知档位不丢,排在末尾且保持相对顺序
+  assert.deepEqual(m.orderedSizes(["huge", "medium", "tiny"]), ["medium", "huge", "tiny"]);
+}
+
+/** AC8:本轮版式修复的接线 —— 左对齐栅格、段标题/段距、档位规范顺序、已添加常驻标识 */
+function layout() {
+  const src = fs.readFileSync(
+    new URL("../scenes/widgets/WidgetGallery.jsx", import.meta.url).pathname,
+    "utf8",
+  );
+
+  // 2) 多行时行首左对齐
+  assert.ok(src.includes("justify-content: flex-start"), "栅格应左对齐,不再居中");
+
+  // 1) 段标题与段距走 galleryLayout 常量
+  assert.ok(src.includes("GALLERY.sectionGap"), "段间距离应取 GALLERY.sectionGap");
+  assert.ok(src.includes("GALLERY.sectionTitleFontSize"), "段标题字号应取 GALLERY.sectionTitleFontSize");
+  assert.equal(m.GALLERY.sectionGap, 32, "段与段之间 32px");
+  assert.equal(m.GALLERY.sectionTitleFontSize, 12, "段标题 12px");
+
+  // 3) 档位按钮按规范顺序渲染(定义数组顺序不动)
+  assert.ok(src.includes("orderedSizes(definition.sizes)"), "档位按钮应走 orderedSizes");
+
+  // 4) 已添加状态常驻:文案 + 缩略图描边
+  assert.ok(src.includes("已在首屏"), "已添加(首屏)应有常驻文案");
+  assert.ok(src.includes("已在副屏"), "已添加(副屏)应有常驻文案");
+  assert.ok(src.includes("$added={added}"), "已添加缩略图应带描边标记");
+  assert.equal(m.GALLERY.addedFontSize, 11, "已添加文案 11px");
+}
+
 /** AC4:行内紧凑填充版式契约 —— 预览即实物(真实卡盒),块宽由卡盒推导、角标锚预览角。
     断言真实渲染路径(widgetSize/BLOCK_MIN),不是某个已废弃的预览缩放语义。 */
 function overflow() {
@@ -303,7 +385,7 @@ function overflow() {
   assert.ok(src.includes("GALLERY.columnGap"), "块间距应取 GALLERY.columnGap");
 
   // 删除/设置角标:放进 Tile 锚预览右上角,随块 hover 显现;背面返回钮常驻
-  const tile = src.slice(src.indexOf("<Tile>"), src.indexOf("</Tile>"));
+  const tile = src.slice(src.indexOf("<Tile "), src.indexOf("</Tile>"));
   assert.ok(tile.includes("WidgetPreview"), "Tile 内应渲染预览缩略图");
   assert.ok(tile.includes("<Corner $reveal"), "角标应放进 Tile(锚预览右上角)且带 $reveal");
   assert.ok(src.includes("&:hover ${Corner}"), "角标应随块 hover 显现");
@@ -361,6 +443,9 @@ const sections = {
   "single-list": singleList,
   "single-instance": singleInstance,
   dedup,
+  groups,
+  "size-order": sizeOrder,
+  layout,
   overflow,
   regression,
 };
