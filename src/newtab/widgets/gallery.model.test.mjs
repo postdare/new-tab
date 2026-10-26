@@ -75,7 +75,7 @@ const result = await build({
         updateInstance, updateInstanceConfig, removeInstance,
         addInstance, dedupeInstances,
       } from "~/widgets/instances";
-      export { galleryCards, applyDedupe } from "~/widgets/galleryModel";
+      export { galleryCards, groupCards, applyDedupe, DEFAULT_GROUP } from "~/widgets/galleryModel";
       export {
         GALLERY, BLOCK_MIN,
       } from "~/widgets/galleryLayout";
@@ -273,6 +273,42 @@ async function dedup() {
   assert.deepEqual(m.__dropped(), ["3", "4", "5"]);
 }
 
+/** AC6:按 group 分段 —— 段顺序 = group 首次出现的顺序,段内保持定义顺序 */
+function groups() {
+  const cards = m.galleryCards(
+    [
+      def("a1", { group: "AI 额度" }),
+      def("b1", { group: "效率" }),
+      def("a2", { group: "AI 额度" }),
+      def("c1", { group: "生活" }),
+      def("b2", { group: "效率" }),
+      def("nogroup"),
+    ],
+    [],
+    {},
+  );
+  const sections = m.groupCards(cards);
+
+  // 段顺序按 group 首次出现,同组卡片聚合且保持原相对顺序
+  assert.deepEqual(
+    sections.map((s) => s.group),
+    ["AI 额度", "效率", "生活", m.DEFAULT_GROUP],
+  );
+  assert.deepEqual(
+    sections.map((s) => s.cards.map((c) => c.definition.type)),
+    [["a1", "a2"], ["b1", "b2"], ["c1"], ["nogroup"]],
+  );
+
+  // 每张卡恰好出现一次
+  assert.equal(
+    sections.flatMap((s) => s.cards).length,
+    cards.length,
+  );
+
+  // 空列表 → 空段
+  assert.deepEqual(m.groupCards([]), []);
+}
+
 /** AC4:行内紧凑填充版式契约 —— 预览即实物(真实卡盒),块宽由卡盒推导、角标锚预览角。
     断言真实渲染路径(widgetSize/BLOCK_MIN),不是某个已废弃的预览缩放语义。 */
 function overflow() {
@@ -361,6 +397,7 @@ const sections = {
   "single-list": singleList,
   "single-instance": singleInstance,
   dedup,
+  groups,
   overflow,
   regression,
 };
