@@ -52,6 +52,7 @@ export const BLOCK_MIN = widgetSize("large").width + GALLERY.cardPadding * 2;
 /**
  * 预览统一槽位:每张卡都占同样大小的槽,预览在槽内居中;
  * 超过槽位的档位按比例缩小(不放大),行高因此一致。
- * 宽高不小于大档真实宽,又能放进 BLOCK_MIN(背面表单宽)内。
+ * 240 宽按 1600 视口的内容宽 1304 反推:5 张卡 + 4 个列距
+ * (5×240 + 4×18 = 1272)能排成一行,不再把 OpenCode Go 挤到第二行。
  */
-export const PREVIEW_BOX = { width: 288, height: 288 };
+export const PREVIEW_BOX = { width: 240, height: 240 };
