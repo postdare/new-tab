@@ -18,7 +18,7 @@ import { dropWidgetData } from "~/widgets/storage";
 import WidgetPreview from "~/widgets/WidgetPreview";
 import SettingsForm from "~/widgets/SettingsForm";
 import { SIZE_LABELS, WIDGET_METRICS, orderedSizes, widgetSize } from "~/widgets/sizes";
-import { BLOCK_MIN, GALLERY, PREVIEW_BOX } from "~/widgets/galleryLayout";
+import { BACK_WIDTH, GALLERY, PREVIEW_BOX } from "~/widgets/galleryLayout";
 
 const Warp = styled.section`
   width: 100%;
@@ -83,9 +83,9 @@ const Grid = styled.div`
   margin-top: 12px;
 `;
 
-/* 每个组件一块(栅格直接收 Front/Back 作子项,块就是行内一个条目)。
-   这页的「块」没有边框、底色、圆角,只有组件缩略图 + 文字,直接浮在页面上。
-   正面块宽 = 预览槽位宽,背面固定 BLOCK_MIN(设置表单需要稳定可读的宽度)。 */
+/* 每个组件一块:栅格收的是这个「槽位锚」——正面的预览+文字,以及翻面后
+   盖在槽位上的设置浮层。锚本身没有边框、底色、圆角;设置浮层是页面上
+   唯一带容器的块:表单需要边界,不然字段、按钮、提示散在页面底色上。 */
 const Face = styled.div`
   position: relative;
   display: flex;
@@ -94,27 +94,43 @@ const Face = styled.div`
   box-sizing: border-box;
 `;
 
-/* 背面返回钮的锚点:贴设置面右上角,常驻 */
-const Corner = styled.div`
-  position: absolute;
-  top: -6px;
-  right: -6px;
+/* 浮层头:标题在左、返回钮在右。返回钮收进卡片,不再悬在块外角上 */
+const BackHead = styled.div`
   display: flex;
-  gap: 6px;
-  z-index: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
 `;
 
 const Front = styled(Face)`
   /* 正面块宽 = 统一槽位宽:每张卡同宽,标题、档位行、操作行才排得齐 */
   width: ${PREVIEW_BOX.width}px;
   text-align: center;
+
+  /* 翻面时正面隐身但保留占位:浮层盖上来,整行与其余卡都不动 */
+  visibility: ${(props) => (props.$concealed ? "hidden" : "visible")};
 `;
 
+/* 设置浮层:点「设置」后锚在本卡槽位上的卡片,绝对定位、不参与占位,
+   翻面前后块宽都是 240,整行不重排。宽 = 槽位 + 两侧各 20px(BACK_WIDTH),
+   探出量小于页边距 28,翻最边上的卡也不会顶出横向滚动。
+   垂直居中在槽位上:预览贴底后槽位顶部是留白区,浮层贴顶会飘到段标题
+   一线、和整行脱节;居中让浮层正好替代隐身的这张卡。 */
 const Back = styled(Face)`
-  /* 设置表单需要稳定的可读宽度,固定用 BLOCK_MIN(大档预览 + 两侧留白) */
-  width: ${BLOCK_MIN}px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: ${BACK_WIDTH}px;
+  z-index: 2;
   align-items: stretch;
   text-align: left;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--colorText, #333) 12%, transparent);
+  background: var(--workspaceBackdrop, #fff);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
 `;
 
 /* 小圆钮:透明底 + 当前文字色,深浅主题都立得住。
@@ -153,14 +169,14 @@ const Round = styled.button`
   }
 `;
 
-/* 预览槽位:所有档位都占同一块固定尺寸,预览在槽内居中。
-   超出槽位的档位由内层按比例缩到放得下,槽位本身不随档位变,
-   所以每张卡等高、下面几行自然横向对齐。 */
+/* 预览槽位:所有档位都占同一块固定尺寸,预览在槽内贴底坐。
+   贴底之后预览到标题的距离恒定(previewMarginBottom),档位高度差被
+   槽位上方的留白吸收 —— 居中时矮卡上下各悬 50~60px 空白,页面松散就是它。 */
 const Tile = styled.div`
   width: ${PREVIEW_BOX.width}px;
   height: ${PREVIEW_BOX.height}px;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
   margin: ${GALLERY.previewMarginTop}px 0 ${GALLERY.previewMarginBottom}px;
   transition: transform 0.18s ease;
@@ -193,22 +209,28 @@ const PreviewScaled = styled.div`
   transform-origin: top left;
 `;
 
+/* 标题行:标题 + 已添加徽标(已在首屏/已在副屏)同行,状态不再单独占一行 */
+const TitleRow = styled.div`
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  max-width: 100%;
+`;
+
 const Title = styled.div`
   font-size: ${GALLERY.titleFontSize}px;
   font-weight: 600;
   line-height: ${GALLERY.titleLineHeight};
-  max-width: 100%;
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 `;
 
-/* 已添加状态:标题下、档位行上,11px muted;未添加不显示文字,
-   但这一行的高度照占,已添加/未添加的档位行与操作行才对得齐 */
-const StatusRow = styled.div`
-  margin-top: ${GALLERY.addedMarginTop}px;
-  min-height: ${GALLERY.statusRowHeight}px;
-  font-size: ${GALLERY.addedFontSize}px;
+const StatusBadge = styled.span`
+  flex: none;
+  font-size: ${GALLERY.statusFontSize}px;
   line-height: 1.4;
   color: var(--workspaceMuted, rgba(28, 25, 23, 0.48));
 `;
@@ -232,7 +254,7 @@ const SizeBtn = styled.button`
   line-height: 1;
   cursor: pointer;
   color: var(--colorText, #333);
-  opacity: ${(props) => (props.$active ? 1 : 0.35)};
+  opacity: ${(props) => (props.$active ? 1 : 0.5)};
   font-weight: ${(props) => (props.$active ? 600 : 400)};
   transition: opacity 0.2s ease;
 
@@ -242,7 +264,8 @@ const SizeBtn = styled.button`
 `;
 
 /* 常驻操作行:添加/设置/换屏/移除都在这里,不再藏进 hover 才出现的角标。
-   整行弱化到 0.6,hover / 聚焦时提亮;触屏没有 hover,直接常驻完整不透明度。 */
+   不做整行弱化:按钮自身已是 muted 色,再叠一层 opacity 会把 11px 文字
+   糊到看不清(双重弱化);hover 提亮交给 ActionBtn 自己。 */
 const ActionRow = styled.div`
   margin-top: 4px;
   min-height: ${GALLERY.actionRowHeight}px;
@@ -251,17 +274,6 @@ const ActionRow = styled.div`
   justify-content: center;
   flex-wrap: wrap;
   gap: ${GALLERY.actionGap}px;
-  opacity: ${GALLERY.actionOpacity};
-  transition: opacity 0.15s ease;
-
-  &:hover,
-  &:focus-within {
-    opacity: 1;
-  }
-
-  @media (hover: none) {
-    opacity: 1;
-  }
 `;
 
 /* 小文字按钮:图标 + 11px 文案;缺密钥等前置条件用 $attention 提亮,
@@ -300,13 +312,15 @@ const ActionBtn = styled.button`
 `;
 
 const BackTitle = styled.div`
-  font-size: 12px;
+  font-size: ${GALLERY.titleFontSize}px;
   font-weight: 600;
-  margin-bottom: 10px;
-  padding-right: 28px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 `;
 
-/* 背面同时有类型设置(如密钥)和此卡设置(如清单名)时,用小标题分开 */
+/* 浮层里同时有类型设置(如密钥)和此卡设置(如清单名)时,用小标题分开 */
 const BackLabel = styled.div`
   font-size: 11px;
   color: var(--workspaceMuted, rgba(28, 25, 23, 0.48));
@@ -332,8 +346,9 @@ const Footer = styled.div`
   line-height: 1.6;
 `;
 
-/** 一块组件:正面是固定槽位预览 + 标题/状态/档位/常驻操作行,点设置换成设置内容;
- *  背面右上角的返回钮常驻。块高由槽位与固定行高撑开,所有卡一致。 */
+/** 一块组件:正面是固定槽位预览 + 标题(含状态徽标)/档位/常驻操作行;
+ *  点「设置」时正面隐身让位,设置浮层盖在槽位上,头部带返回钮。
+ *  块高由槽位与固定行高撑开,所有卡一致;翻面不影响任何邻居的排布。 */
 const GalleryCard = (props) => {
   const {
     card,
@@ -366,89 +381,96 @@ const GalleryCard = (props) => {
   const box = widgetSize(size);
   const scale = Math.min(1, PREVIEW_BOX.width / box.width, PREVIEW_BOX.height / box.height);
 
-  return flipped ? (
-    <Back>
-      <Corner>
-        <Round type="button" title="返回" onClick={() => setFlipped(false)}>
-          <IconArrowBackUp size={13} stroke={1.8} />
-        </Round>
-      </Corner>
-      <BackTitle>{title}</BackTitle>
-      {settingsSchema && configSchema ? <BackLabel>组件设置</BackLabel> : null}
-      {settingsSchema ? (
-        <SettingsForm
-          schema={settingsSchema}
-          values={settingsValues}
-          onSave={onSaveSetting}
-          onClear={onClearSetting}
-        />
-      ) : null}
-      {settingsSchema && configSchema ? <BackLabel>此卡设置</BackLabel> : null}
-      {configSchema ? (
-        <SettingsForm
-          schema={configSchema}
-          values={configValues}
-          onSave={onSaveConfig}
-          onClear={onClearConfig}
-        />
-      ) : null}
-    </Back>
-  ) : (
-    <Front>
-      <Tile>
-        <PreviewFit $box={box} $scale={scale} $added={added}>
-          <PreviewScaled $scale={scale}>
-            <WidgetPreview definition={definition} size={size} dim={!added && !canAdd} />
-          </PreviewScaled>
-        </PreviewFit>
-      </Tile>
-      <Title>{title}</Title>
-      <StatusRow>{added ? (instance.screen ? "已在副屏" : "已在首屏") : null}</StatusRow>
-      <Sizes>
-        {definition.sizes.length > 1
-          ? orderedSizes(definition.sizes).map((one) => (
-              <SizeBtn
-                key={one}
-                type="button"
-                $active={one === size}
-                onClick={() => onResize(one)}
-              >
-                {SIZE_LABELS[one]}
-              </SizeBtn>
-            ))
-          : null}
-      </Sizes>
-      <ActionRow>
-        {canFlip ? (
-          <ActionBtn
-            type="button"
-            $attention={attention}
-            title="设置"
-            onClick={() => setFlipped(true)}
-          >
-            <IconSettings size={12} stroke={1.8} />
-            设置
-          </ActionBtn>
-        ) : null}
-        {added ? (
-          <>
-            <ActionBtn type="button" onClick={onMoveScreen}>
-              <IconArrowsExchange size={12} stroke={1.8} />
-              {instance.screen ? "移到首屏" : "移到副屏"}
+  return (
+    <Face>
+      <Front $concealed={flipped}>
+        <Tile>
+          <PreviewFit $box={box} $scale={scale} $added={added}>
+            <PreviewScaled $scale={scale}>
+              <WidgetPreview definition={definition} size={size} dim={!added && !canAdd} />
+            </PreviewScaled>
+          </PreviewFit>
+        </Tile>
+        <TitleRow>
+          <Title>{title}</Title>
+          {added ? (
+            <StatusBadge>{instance.screen ? "已在副屏" : "已在首屏"}</StatusBadge>
+          ) : null}
+        </TitleRow>
+        <Sizes>
+          {definition.sizes.length > 1
+            ? orderedSizes(definition.sizes).map((one) => (
+                <SizeBtn
+                  key={one}
+                  type="button"
+                  $active={one === size}
+                  onClick={() => onResize(one)}
+                >
+                  {SIZE_LABELS[one]}
+                </SizeBtn>
+              ))
+            : null}
+        </Sizes>
+        <ActionRow>
+          {canFlip ? (
+            <ActionBtn
+              type="button"
+              $attention={attention}
+              title="设置"
+              onClick={() => setFlipped(true)}
+            >
+              <IconSettings size={12} stroke={1.8} />
+              设置
             </ActionBtn>
-            <ActionBtn type="button" onClick={onRemove}>
-              <IconMinus size={12} stroke={2} />
-              移除
+          ) : null}
+          {added ? (
+            <>
+              <ActionBtn type="button" onClick={onMoveScreen}>
+                <IconArrowsExchange size={12} stroke={1.8} />
+                {instance.screen ? "移到首屏" : "移到副屏"}
+              </ActionBtn>
+              <ActionBtn type="button" onClick={onRemove}>
+                <IconMinus size={12} stroke={2} />
+                移除
+              </ActionBtn>
+            </>
+          ) : (
+            <ActionBtn type="button" title={addReason} disabled={!canAdd} onClick={onAdd}>
+              <IconPlus size={12} stroke={2} />
+              添加到首屏
             </ActionBtn>
-          </>
-        ) : (
-          <ActionBtn type="button" title={addReason} disabled={!canAdd} onClick={onAdd}>
-            <IconPlus size={12} stroke={2} />
-            添加到首屏
-          </ActionBtn>
-        )}
-      </ActionRow>
-    </Front>
+          )}
+        </ActionRow>
+      </Front>
+      {flipped ? (
+        <Back>
+          <BackHead>
+            <BackTitle>{title}</BackTitle>
+            <Round type="button" title="返回" onClick={() => setFlipped(false)}>
+              <IconArrowBackUp size={13} stroke={1.8} />
+            </Round>
+          </BackHead>
+          {settingsSchema && configSchema ? <BackLabel>组件设置</BackLabel> : null}
+          {settingsSchema ? (
+            <SettingsForm
+              schema={settingsSchema}
+              values={settingsValues}
+              onSave={onSaveSetting}
+              onClear={onClearSetting}
+            />
+          ) : null}
+          {settingsSchema && configSchema ? <BackLabel>此卡设置</BackLabel> : null}
+          {configSchema ? (
+            <SettingsForm
+              schema={configSchema}
+              values={configValues}
+              onSave={onSaveConfig}
+              onClear={onClearConfig}
+            />
+          ) : null}
+        </Back>
+      ) : null}
+    </Face>
   );
 };
 

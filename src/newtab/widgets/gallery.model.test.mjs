@@ -77,7 +77,7 @@ const result = await build({
       } from "~/widgets/instances";
       export { galleryCards, groupCards, applyDedupe, DEFAULT_GROUP } from "~/widgets/galleryModel";
       export {
-        GALLERY, BLOCK_MIN, PREVIEW_BOX,
+        GALLERY, BACK_WIDTH, PREVIEW_BOX,
       } from "~/widgets/galleryLayout";
       export { WIDGET_SIZES, SIZE_ORDER, orderedSizes } from "~/widgets/sizes";
       export { __setRegistry } from "~/widgets/registry";
@@ -343,7 +343,7 @@ function layout() {
   assert.ok(src.includes("GALLERY.sectionGap"), "段间距离应取 GALLERY.sectionGap");
   assert.ok(src.includes("GALLERY.sectionTitleFontSize"), "段标题字号应取 GALLERY.sectionTitleFontSize");
   assert.equal(m.GALLERY.sectionGap, 32, "段与段之间 32px");
-  assert.equal(m.GALLERY.sectionTitleFontSize, 12, "段标题 12px");
+  assert.equal(m.GALLERY.sectionTitleFontSize, 13, "段标题 13px");
 
   // 3) 档位按钮按规范顺序渲染(定义数组顺序不动)
   assert.ok(src.includes("orderedSizes(definition.sizes)"), "档位按钮应走 orderedSizes");
@@ -352,7 +352,9 @@ function layout() {
   assert.ok(src.includes("已在首屏"), "已添加(首屏)应有常驻文案");
   assert.ok(src.includes("已在副屏"), "已添加(副屏)应有常驻文案");
   assert.ok(src.includes("$added={added}"), "已添加缩略图应带描边标记");
-  assert.equal(m.GALLERY.addedFontSize, 11, "已添加文案 11px");
+  assert.equal(m.GALLERY.statusFontSize, 11, "已添加徽标 11px");
+  assert.ok(src.includes("<StatusBadge>"), "已添加状态应并入标题行的徽标");
+  assert.ok(!src.includes("StatusRow"), "状态行应已移除,不再单独占一行");
 
   // 第三波 1) 槽位缩到 240:1600 视口(内容宽 1304)下 AI 五卡一行排满
   assert.equal(m.PREVIEW_BOX.width, 240, "槽位宽 240");
@@ -362,7 +364,7 @@ function layout() {
     "5 张卡 + 4 个列距应放进 1600 视口的内容宽 1304",
   );
   assert.ok(m.PREVIEW_BOX.width >= m.WIDGET_SIZES.small.width, "槽位至少容得下小卡原大");
-  assert.ok(m.PREVIEW_BOX.width <= m.BLOCK_MIN, "槽位应放进 BLOCK_MIN(背面表单宽)内");
+  assert.ok(m.PREVIEW_BOX.width <= m.BACK_WIDTH, "槽位应放进设置浮层宽内");
   assert.ok(src.includes("width: ${PREVIEW_BOX.width}px"), "Front 宽应取槽位宽");
   assert.ok(src.includes("Math.min(1"), "预览缩放不应放大");
   assert.ok(src.includes("transform: scale("), "预览应按比例缩放适配槽位");
@@ -381,6 +383,10 @@ function layout() {
   assert.equal(fit(m.WIDGET_SIZES.small), 1, "小卡不放大");
   assert.ok(fit(m.WIDGET_SIZES.large) < 1, "大卡应缩进槽位");
 
+  // 预览贴槽位底部:预览与标题的间距恒定,档位高度差由槽位上方留白吸收
+  const tileStyle = src.slice(src.indexOf("const Tile"), src.indexOf("const PreviewFit"));
+  assert.ok(tileStyle.includes("align-items: flex-end"), "预览应在槽位内贴底,不居中悬空");
+
   // 第二波 2) 操作从 hover 角标移到常驻操作行
   assert.ok(src.includes("<ActionRow>"), "应有常驻操作行");
   assert.ok(src.includes("添加到首屏"), "未添加卡应有添加文案");
@@ -388,19 +394,24 @@ function layout() {
   assert.ok(src.includes("移到副屏") && src.includes("移到首屏"), "已添加卡应有换屏文案");
   assert.ok(!src.includes("hoverOnly"), "不应再有 hover 才显示的操作");
   assert.ok(!src.includes("$reveal"), "不应再有 hover 角标那套");
-  assert.equal(m.GALLERY.actionOpacity, 0.6, "操作行常驻弱化 0.6");
-  assert.ok(m.GALLERY.statusRowHeight > 0, "状态行缺席时也应占固定行高");
+  assert.ok(!("actionOpacity" in m.GALLERY), "操作行不再整行弱化(muted 色已弱化,叠加会把 11px 文字糊掉)");
+  assert.ok(!src.includes("GALLERY.actionOpacity"), "操作行样式不应再引用整行弱化");
+  assert.ok(!("statusRowHeight" in m.GALLERY), "状态行已并入标题行");
   assert.ok(m.GALLERY.sizesRowHeight > 0, "单档组件也应占档位行高");
 }
 
-/** AC4:行内紧凑填充版式契约 —— 预览即实物(真实卡盒),块宽由卡盒推导、角标锚预览角。
-    断言真实渲染路径(widgetSize/BLOCK_MIN),不是某个已废弃的预览缩放语义。 */
+/** AC4:行内紧凑填充版式契约 —— 预览即实物(真实卡盒),设置浮层宽由槽位推导。
+    断言真实渲染路径(widgetSize/BACK_WIDTH),不是某个已废弃的预览缩放语义。 */
 function overflow() {
-  // 块宽下限是推导值:大卡真实宽 + 两侧留白,不许再拍一个固定数
+  // 设置浮层宽是推导值:槽位 + 两侧各 20px,不许拍一个与槽位无关的数
   assert.equal(
-    m.BLOCK_MIN,
-    m.WIDGET_SIZES.large.width + m.GALLERY.cardPadding * 2,
-    "BLOCK_MIN 应 = 大卡宽 + 2×cardPadding(改 SCALE 自动跟随)",
+    m.BACK_WIDTH,
+    m.PREVIEW_BOX.width + 40,
+    "BACK_WIDTH 应 = 槽位宽 + 2×20px 探出",
+  );
+  assert.ok(
+    (m.BACK_WIDTH - m.PREVIEW_BOX.width) / 2 < 28,
+    "浮层两侧探出应小于页边距 28px,翻最边上的卡也不产生横向滚动",
   );
 
   // 缩略图按真实尺寸渲染:WidgetPreview 直接用真实卡盒与 M 度量,不再有独立缩放层
@@ -418,7 +429,7 @@ function overflow() {
   );
   assert.ok(src.includes("flex-wrap"), "页面应改为 flex-wrap 行内紧凑填充");
   assert.ok(!src.includes("column-width"), "不许回到多列瀑布(column-width)");
-  assert.ok(src.includes("BLOCK_MIN"), "设置面宽度应由 BLOCK_MIN 推导,不再写死");
+  assert.ok(src.includes("BACK_WIDTH"), "设置浮层宽度应由 BACK_WIDTH 推导,不再写死");
   assert.ok(src.includes("widgetSize(size)"), "正面块宽应取 widgetSize(档位)");
   assert.ok(src.includes("GALLERY.columnGap"), "块间距应取 GALLERY.columnGap");
 
