@@ -1,6 +1,6 @@
 import React from "react";
 import styled from "styled-components";
-import { Button, Input, InputNumber, Select, Space, Switch, Typography } from "antd";
+import { Button, ConfigProvider, Input, InputNumber, Select, Space, Switch, Typography } from "antd";
 import useStores from "~/hooks/useStores";
 
 const Field = styled.div`
@@ -9,9 +9,18 @@ const Field = styled.div`
   }
 `;
 
+/* 标签行:label 在左,「打开控制台」这类帮助链接在右 —— 它是「去哪拿密钥」
+   的帮助入口,不和保存/清除这些改动数据的按钮混在一排 */
+const LabelRow = styled.div`
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+`;
+
 const Label = styled.div`
   font-size: 12px;
-  margin-bottom: 6px;
   color: var(--colorText);
 `;
 
@@ -118,8 +127,16 @@ const SettingField = (props) => {
 
   return (
     <Field>
-      <Label>{field.label}</Label>
+      <LabelRow>
+        <Label>{field.label}</Label>
+        {field.link ? (
+          <Typography.Link href={field.link.url} target="_blank">
+            {field.link.text}
+          </Typography.Link>
+        ) : null}
+      </LabelRow>
       {control()}
+      {field.hint ? <Hint>{field.hint}</Hint> : null}
       {field.verify ? (
         <div style={{ marginTop: 8 }}>
           <Space>
@@ -127,20 +144,14 @@ const SettingField = (props) => {
               测试并保存
             </Button>
             {value ? (
-              <Button size="small" onClick={onClearClick}>
-                清除
+              <Button size="small" type="text" onClick={onClearClick}>
+                {field.secret ? "清除密钥" : "清除"}
               </Button>
-            ) : null}
-            {field.link ? (
-              <Typography.Link href={field.link.url} target="_blank">
-                {field.link.text}
-              </Typography.Link>
             ) : null}
           </Space>
         </div>
       ) : null}
       {tested ? <Hint>{tested}</Hint> : null}
-      {field.hint ? <Hint>{field.hint}</Hint> : null}
     </Field>
   );
 };
@@ -153,7 +164,9 @@ const SettingField = (props) => {
 const SettingsForm = (props) => {
   const { schema, values, onSave, onClear } = props;
   return (
-    <>
+    /* 表单周边的正文是 11–13px 的小字排版,antd 控件默认 14px,
+       统一压到 13px,免得一张卡里两套尺度 */
+    <ConfigProvider theme={{ token: { fontSize: 13 } }}>
       {schema.map((field) => (
         <SettingField
           key={field.key}
@@ -163,7 +176,7 @@ const SettingsForm = (props) => {
           onClear={onClear}
         />
       ))}
-    </>
+    </ConfigProvider>
   );
 };
 
