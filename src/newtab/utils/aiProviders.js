@@ -8,6 +8,7 @@ import { kimiQuota, KIMI_CONSOLE_URL } from "./kimiUsage";
 import { factoryQuota, FACTORY_CONSOLE_URL } from "./factoryUsage";
 import { antixQuota, ANTIX_CONSOLE_URL } from "./antixUsage";
 import { opencodeQuota, OPENCODE_CONSOLE_URL } from "./opencodeUsage";
+import { bigmodelQuota, BIGMODEL_CONSOLE_URL } from "./bigmodelUsage";
 
 /** 窗口用量到这个比例就该提醒了 */
 const USAGE_ALERT_PERCENT = 90;
@@ -149,6 +150,32 @@ export const AI_PROVIDERS = [
     describe: (data) =>
       `5 小时窗口已用 ${Math.round(data.rollingPercent ?? data.weeklyPercent ?? 0)}%`,
     hint: "在 opencode.ai 控制台的 API Keys 里创建 sk-* 密钥，与 Zen 推理用的是同一把。工作区还需要 Go 订阅，否则用量接口会返回 403。该接口官方未公开文档，字段变动可能导致显示异常。",
+  },
+  {
+    id: "bigmodel",
+    optionKey: "bigmodelApiKey",
+    title: "智谱 BigModel",
+    label: "智谱 BigModel API Key",
+    placeholder: "xxxxxxxxx.xxxxxxxx",
+    consoleUrl: BIGMODEL_CONSOLE_URL,
+    quota: bigmodelQuota,
+    summary: "Coding Plan 5 小时 / 周用量进度",
+    /* 与 Factory 同构：中卡一次性给出两个窗口的进度条，主数值与倒计时都锚在 5 小时档。
+       2026 新套餐按积分（Credits）计量，接口兼容旧版 TOKENS_LIMIT。 */
+    format: (data) => ({
+      ...usageView(
+        data.fiveHourPercent ?? data.weeklyPercent,
+        formatCountdown(data.fiveHourReset),
+        []
+      ),
+      bars: [
+        { label: "5 小时", percent: data.fiveHourPercent },
+        { label: "周", percent: data.weeklyPercent },
+      ].filter((bar) => bar.percent !== null && bar.percent !== undefined),
+    }),
+    describe: (data) =>
+      `5 小时窗口已用 ${Math.round(data.fiveHourPercent ?? data.weeklyPercent ?? 0)}%`,
+    hint: "在 bigmodel.cn 用户中心的 API Keys 里创建 Coding Plan 密钥（形如 <id>.<secret>，注意不是 Bearer）。2026 新套餐按积分（Credits）计量。该用量接口官方未公开文档，字段变动可能导致显示异常。",
   },
 ];
 

@@ -56,6 +56,15 @@ const APPEARANCE = {
     ),
     accent: "#f7ff00",
   },
+  bigmodel: {
+    /* 智谱/GLM 的识别色是品牌蓝 #2563eb（open.bigmodel.cn 的按钮与强调）。
+       取它做深色底渐变，与 DeepSeek 的纯蓝、Antix 的青在色相上分得开——
+       三张蓝系卡靠色相与饱和度区分，不会摆在一起认不出。 */
+    sizes: ["medium", "small"],
+    tint: tint(
+      "linear-gradient(158deg, rgba(37, 99, 235, 0.74) 0%, rgba(29, 78, 216, 0.68) 52%, rgba(37, 99, 235, 0.72) 100%)"
+    ),
+  },
 };
 
 /**
