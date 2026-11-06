@@ -55,35 +55,47 @@ const HomeLinkNav = styled.div`
 
   &:hover {
     box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
-    .home-link-drag-handle {
+    .home-link-drag-grip {
       opacity: 0.85;
     }
   }
 
   &.dragging {
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
-    .home-link-drag-handle {
+    .home-link-drag-grip {
       opacity: 1;
     }
   }
 `;
 
-const DragHandle = styled.div`
+/* 标题行：标题居左、拖拽手柄居右。listeners 挂在整行上而不是只挂隐形图标，
+   手柄淡出后仍能从标题处起拖，不会因为看不见就没法拖 */
+const DragHandleRow = styled.div`
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 4px;
   min-height: 16px;
   margin: -4px 0 6px;
   padding: 2px 0 4px;
   cursor: grab;
-  color: var(--textColor);
-  opacity: 0.35;
-  transition: opacity 0.2s;
   touch-action: none;
   &:active {
     cursor: grabbing;
   }
+`;
+
+/* 手柄默认隐形，hover 整卡才淡入（拖拽中保持全亮）。
+   用 margin-left: auto 贴右端，这样「显示分组名称」关闭、行里只剩图标时
+   它依然靠右，也不会因为标题的 flex:1 而丢失右对齐 */
+const DragGrip = styled.span`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--textColor);
+  opacity: 0;
+  transition: opacity 0.2s;
   svg {
     flex-shrink: 0;
   }
@@ -212,14 +224,12 @@ const HomeLinkGroupInner = (props) => {
         }}
       >
         <Frost />
-        <DragHandle
-          className="home-link-drag-handle"
-          {...listeners}
-          title="拖动调整位置"
-        >
-          <IconGripHorizontal size={14} stroke={1.6} />
+        <DragHandleRow {...listeners} title="拖动调整位置">
           {showTitle ? <GroupTitle title={title}>{title}</GroupTitle> : null}
-        </DragHandle>
+          <DragGrip className="home-link-drag-grip">
+            <IconGripHorizontal size={14} stroke={1.6} />
+          </DragGrip>
+        </DragHandleRow>
         <ReactSortable
           tag={SortableWrapper}
           list={linkList}
